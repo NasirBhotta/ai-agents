@@ -50,7 +50,33 @@ crew ai
 langraph
 autogen
 
-resources ->  
+
+-> for week one we created some agents using no framework
 
 
+week -> 2
+
+-> asyncio in python 
+-> a function that is created by async it is called coroutine
+
+-> openai agents sdk -> framework
+	-> lightweight and flexible
+	-> it is not opinionated
+	-> make common activities easy
+
+	-> handoff is a term for interaction between agents
+	-> guardrails is a terminology to setup security about how your agent behave
+
+
+-> so to run a agent we have three steps
+	-> create an instance of agent.
+	-> use with_trace() ->to keep a log of interaction
+	-> runner.run() -> will run the agent
+
+
+we have three things 
+	-> tools -> created  using a functions.as_tool()
+	-> agents as tools -> we convert agents into tools be used by other agents
+	-> handoffs -> means giving a complete responsibility to another agent who is specialist in doing so
+	
 
