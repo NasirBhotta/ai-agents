@@ -31,6 +31,8 @@ instructions3 = (
     "You write concise, to the point cold emails."
 )
 
+# comment added to trigger a new commit and test the workflow
+
 
 sales_agent1 = Agent(
     name="Professional Sales Agent",
@@ -67,8 +69,8 @@ sales_picker = Agent(
 def send_email(body: str) -> Dict[str, str]:
     """Send out an email with the given body to all sales prospects."""
     sg = sendgrid.SendGridAPIClient(api_key=os.environ.get("SENDGRID_API_KEY"))
-    from_email = Email("ed@edwarddonner.com")
-    to_email = To("ed.donner@gmail.com")
+    from_email = Email("me.bhotta@gmail.com")
+    to_email = To("nasirbhotta@gmail.com")
     content = Content("text/plain", body)
     mail = Mail(from_email, to_email, "Sales email", content).get()
     sg.client.mail.send.post(request_body=mail)
@@ -125,8 +127,8 @@ plain_sales_manager = Agent(
 def send_html_email(subject: str, html_body: str) -> Dict[str, str]:
     """Send out an email with the given subject and HTML body to prospects."""
     sg = sendgrid.SendGridAPIClient(api_key=os.environ.get("SENDGRID_API_KEY"))
-    from_email = Email("ed@edwarddonner.com")
-    to_email = To("ed.donner@gmail.com")
+    from_email = Email("me.bhotta@gmail.com")
+    to_email = To("nasirbhotta@gmail.com")
     content = Content("text/html", html_body)
     mail = Mail(from_email, to_email, subject, content).get()
     sg.client.mail.send.post(request_body=mail)

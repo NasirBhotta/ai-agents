@@ -77,6 +77,6 @@ week -> 2
 we have three things 
 	-> tools -> created  using a functions.as_tool()
 	-> agents as tools -> we convert agents into tools be used by other agents
-	-> handoffs -> means giving a complete responsibility to another agent who is specialist in doing so
+	-> handoffs -> means giving a complete responsibility to another agent who is specialist in doing so.
 	
 
