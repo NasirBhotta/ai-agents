@@ -80,3 +80,7 @@ we have three things
 	-> handoffs -> means giving a complete responsibility to another agent who is specialist in doing so.
 	
 
+deep research agent
+	-> websearch tool by openai sdk
+	-> filesearch tool by //
+	-> computer tool by  //
