@@ -1,29 +1,281 @@
-find_trending_companies:
+find_psx_trending_stocks:
   description: >
-    Find the top trending companies in the news in {sector} by searching the latest news. Find new companies that you've not found before.
+    Search Pakistani financial news sources and PSX announcements to identify 3-5 companies
+    listed on the Pakistan Stock Exchange (KSE-100 or KSE-30) that are currently trending.
+    
+    Search the following sources: Dawn Business (dawn.com/business), Business Recorder
+    (brecorder.com), Profit.pk, The News Business (thenews.com.pk/business), ARY Business,
+    and Mettis Global. Also search for recent PSX company announcements.
+    
+    For each trending company, capture:
+    - Company name and PSX ticker symbol (e.g. ENGRO, HBL, LUCK, PSO, MCB, FFC)
+    - PSX sector (e.g. Banking, Cement, Fertiliser, Oil & Gas, Textile, Technology)
+    - The specific reason it is trending (earnings surprise, CPEC contract, dividend announcement,
+      SBP policy impact, foreign investment, index rebalancing, etc.)
+    - Current approximate share price in PKR if available
+    - Source URL of the news catalyst
+    
+    Only include PSX-listed companies. Do not include companies listed on other exchanges.
+    Prioritize companies with material, investable catalysts over minor news stories.
+    Today's date: {current_date}
+    Target sector focus: {sector}
   expected_output: >
-    A list of trending companies in {sector}
-  agent: trending_company_finder
-  output_file: output/trending_companies.json
+    A structured list of 3-5 PSX-listed trending companies, each with ticker, sector,
+    catalyst reason, approximate price in PKR, and news source. Output as JSON.
+  agent: psx_news_finder
+  output_file: output/trending_stocks.json
 
-research_trending_companies:
+analyze_pakistan_macro:
   description: >
-    Given a list of trending companies, provide detailed analysis of each company in a report by searching online
+    Produce a comprehensive Pakistani macroeconomic context report to frame the investment
+    decision. Search for current data on the following indicators:
+    
+    MONETARY POLICY:
+    - Current SBP policy rate and the date of the last MPC decision
+    - Direction of the rate cycle (cutting / holding / hiking) and market expectations
+    - Impact on lending rates and corporate borrowing costs
+    
+    CURRENCY & INFLATION:
+    - Current PKR/USD exchange rate and 3-month trend (appreciation or depreciation)
+    - Official CPI headline and core inflation figures (latest available)
+    - Implications for different PSX sectors (exporters benefit from weak PKR; importers hurt)
+    
+    EXTERNAL SECTOR:
+    - Pakistan foreign exchange reserves (State Bank + commercial banks)
+    - IMF programme status: which tranche, compliance status, upcoming review dates
+    - Remittance inflows trend (major support for PKR)
+    
+    FISCAL & GROWTH:
+    - Latest GDP growth estimate for current fiscal year
+    - PSDP (Public Sector Development Programme) spending — impacts cement, construction, steel
+    - Federal budget key measures relevant to PSX-listed sectors
+    
+    SECTOR TAILWINDS & HEADWINDS (label each as Tailwind / Neutral / Headwind):
+    - Banking sector (NIM sensitivity to SBP rate)
+    - Oil & Gas (PKR impact, international oil prices)
+    - Fertiliser (gas pricing policy, subsidy status)
+    - Cement (PSDP activity, construction demand)
+    - Textile (export orders, US/EU tariff environment, energy costs)
+    - Technology/IT (USD revenue, talent retention)
+    - Automobile (demand, localisation policy, financing rates)
+    - Power/IPPs (circular debt, capacity payments, NEPRA tariffs)
+    
+    Today's date: {current_date}
   expected_output: >
-    A report containing detailed analysis of each company
+    A structured macro report with all indicators filled in, sector verdict table
+    (tailwind/neutral/headwind), and 2-3 key macro themes the stock picker must weigh.
+    Output as JSON.
+  agent: pakistan_macro_analyst
+  output_file: output/macro_report.json
+
+research_company_financials:
+  description: >
+    Conduct thorough fundamental analysis of each company identified in the trending stocks list.
+    Access PSX company announcements, financial statements, and broker research.
+    
+    For EACH company, research and compile:
+    
+    EARNINGS & PROFITABILITY:
+    - Latest quarterly EPS vs same quarter prior year (YoY growth %)
+    - Latest annual revenue, net profit, and net profit margin
+    - Gross margin trend (improving or deteriorating)
+    - EBITDA and operating cash flow if available
+    
+    VALUATION:
+    - Current P/E ratio and how it compares to: (a) sector peers on PSX, (b) 5-year historical average
+    - Price-to-Book (P/B) ratio
+    - Dividend yield at current price (dividend per share ÷ current price)
+    - EV/EBITDA if available
+    
+    BALANCE SHEET HEALTH:
+    - Debt-to-equity ratio
+    - Interest coverage ratio (EBIT ÷ interest expense) — critical given high SBP rates
+    - Current ratio (current assets ÷ current liabilities)
+    - Cash and equivalents position
+    
+    BUSINESS QUALITY:
+    - Revenue concentration (single product vs diversified)
+    - Pricing power and competitive position within Pakistani market
+    - Export revenue % of total (PKR depreciation beneficiary?)
+    - Ownership structure (family-controlled, government-owned, or institutional)
+    - Any recent SECP disclosures, corporate actions, or related-party transactions
+    
+    ANALYST VIEWS:
+    - Broker consensus (buy/hold/sell) from Topline Securities, AKD Securities, JS Global,
+      Arif Habib Limited, or IGI Securities if findable
+    - Most recent price target in PKR
+    
+    Context from macro report: {macro_environment}
+  expected_output: >
+    Detailed fundamental analysis for each company with all metrics filled in, a fundamental
+    strength score (1-10) for each, and a 3-sentence investment thesis. Output as JSON.
   agent: financial_researcher
   context:
-    - find_trending_companies
-  output_file: output/research_report.json
+    - find_psx_trending_stocks
+    - analyze_pakistan_macro
+  output_file: output/financial_research.json
 
-pick_best_company:
+perform_technical_analysis:
   description: >
-    Analyze the research findings and pick the best company for investment.
-    Send a push notification to the user with the decision and 1 sentence rationale.
-    Then respond with a detailed report on why you chose this company, and which companies were not selected.
+    Perform technical analysis on each shortlisted PSX company to identify timing signals.
+    PSX trading hours: Monday–Friday, 09:15–15:30 PKT. Use the most recent session data.
+    
+    For EACH company, analyze and report:
+    
+    TREND:
+    - Primary trend on daily chart: Uptrend / Downtrend / Sideways
+    - Weekly trend confirmation: confirms or contradicts daily?
+    - Position relative to 52-week high and low (% from each)
+    
+    MOVING AVERAGES:
+    - Current price vs 50-day MA (above/below, % distance)
+    - Current price vs 200-day MA (above/below, % distance)
+    - Golden Cross (50 > 200 MA) or Death Cross (50 < 200 MA) — note date if recent
+    
+    MOMENTUM INDICATORS:
+    - RSI (14-day): current value and interpretation (overbought >70, oversold <30, neutral)
+    - MACD: bullish crossover, bearish crossover, or neutral signal
+    - Stochastic oscillator if relevant
+    
+    SUPPORT & RESISTANCE:
+    - Nearest support level in PKR and distance from current price (%)
+    - Nearest resistance level in PKR and distance from current price (%)
+    - Key breakout levels to watch
+    
+    VOLUME:
+    - Average daily volume vs 30-day average (is volume expanding or contracting on moves?)
+    - Any notable institutional accumulation or distribution signals
+    
+    KSE-100 RELATIVE STRENGTH:
+    - Is the stock outperforming or underperforming KSE-100 index YTD?
+    - Beta vs KSE-100 (if available)
+    
+    TECHNICAL SETUP RATING: Score 1-10 (10 = perfect buy setup, 1 = avoid technically)
+    SUGGESTED ENTRY ZONE: PKR range for entry
+    STOP-LOSS LEVEL: PKR level below which the trade thesis is invalidated
+    
+    Today's date: {current_date}
   expected_output: >
-    The chosen company and why it was chosen; the companies that were not selected and why they were not selected.
+    Technical analysis for each company with all indicators, a technical score (1-10),
+    suggested entry zone in PKR, and stop-loss level. Output as JSON.
+  agent: technical_analyst
+  context:
+    - find_psx_trending_stocks
+    - research_company_financials
+  output_file: output/technical_analysis.json
+
+assess_investment_risks:
+  description: >
+    Conduct a Pakistan-specific risk assessment for each shortlisted PSX company.
+    Rate each risk dimension as: Low / Medium / High / Critical.
+    
+    For EACH company, assess:
+    
+    1. CURRENCY RISK (PKR/USD):
+       - Is the company an exporter (benefits from PKR weakness) or importer (hurt by PKR weakness)?
+       - What % of costs or revenues are USD-denominated?
+       - Sensitivity score if PKR depreciates a further 10%
+    
+    2. INTEREST RATE RISK:
+       - Debt level relative to equity and earnings
+       - If SBP holds rates high, what is the earnings impact?
+       - If SBP cuts rates, does the company benefit (borrowers) or face NIM compression (banks)?
+    
+    3. REGULATORY & GOVERNANCE RISK:
+       - Any pending SECP investigations or regulatory actions?
+       - Related-party transaction concerns?
+       - Windfall tax risk (has the government targeted this sector before?)
+       - Price control exposure (energy, medicines, commodities)
+    
+    4. POLITICAL RISK:
+       - Is this company sensitive to which political party is in power?
+       - CPEC dependency — risk if CPEC projects slow?
+       - Nationalisation or government interference risk?
+    
+    5. LIQUIDITY RISK:
+       - Average daily traded value in PKR — can a meaningful position be built/exited?
+       - Free float percentage (low free float = illiquid, volatile)
+       - Risk of trading halt or circuit breaker on bad news
+    
+    6. SECTOR-SPECIFIC PAKISTAN RISKS:
+       - Cement: PSDP budget cuts, real estate slowdown
+       - Banking: NPL rise, SBP regulatory capital requirements
+       - Oil & Gas: circular debt, government price regulation, reserves depletion
+       - Textile: US tariffs, energy cost, cotton price
+       - Fertiliser: gas supply curtailment, subsidy policy
+       - Power/IPPs: capacity payment disputes, NEPRA tariff cuts
+       - Technology: talent outflow, brain drain, USD payment restrictions
+    
+    7. IMF CONDITIONALITY RISK:
+       - Is this sector targeted by IMF structural benchmarks (subsidy removal, tax reform)?
+       - Risk of negative policy action under IMF programme terms
+    
+    OVERALL RISK RATING: Low / Medium / High / Critical
+    RISK-ADJUSTED RECOMMENDATION: Proceed / Proceed with Caution / Avoid
+    
+    Use macro report context for environment-level risks.
+  expected_output: >
+    Risk assessment for each company with all dimensions scored, overall risk rating,
+    and risk-adjusted recommendation. Output as JSON.
+  agent: risk_analyst
+  context:
+    - find_psx_trending_stocks
+    - analyze_pakistan_macro
+    - research_company_financials
+  output_file: output/risk_assessment.json
+
+pick_best_psx_stock:
+  description: >
+    You have received the complete research package from the team:
+    - Trending stocks list (tickers, sectors, catalysts)
+    - Pakistan macroeconomic context (SBP rates, PKR, IMF, sector verdicts)
+    - Fundamental analysis (EPS, P/E, dividend yield, balance sheet, analyst targets)
+    - Technical analysis (trend, RSI, MACD, support/resistance, entry zones, stop-loss)
+    - Risk assessment (currency, rate, regulatory, political, liquidity, sector, IMF risks)
+    
+    YOUR TASK:
+    
+    STEP 1 — SCORING: Apply this weighted model to each candidate:
+      Fundamental strength score (1-10)    × 0.30
+      Macro tailwind alignment (1-10)      × 0.25
+      Technical setup score (1-10)         × 0.20
+      Risk profile (10 = Low risk, 1 = Critical risk) × 0.15
+      Valuation vs PSX peers (1-10)        × 0.10
+    
+    Calculate a total weighted score (out of 10) for each candidate.
+    Present the scoring table clearly.
+    
+    STEP 2 — SELECTION: Choose the company with the highest weighted score.
+    If two are within 0.3 points, use the risk assessment as the tiebreaker (prefer lower risk).
+    Do not select a company you have selected in a previous run (memory is active).
+    
+    STEP 3 — PUSH NOTIFICATION: Send a push notification in this exact format:
+    "PSX PICK: [TICKER] @ PKR [current price] | Target: PKR [price target] | [one-sentence rationale]"
+    
+    STEP 4 — INVESTMENT REPORT: Write a comprehensive markdown investment report covering:
+    
+    ## Selected Stock: [COMPANY NAME] ([TICKER])
+    ### Investment Thesis (3-4 paragraphs)
+    ### Key Financials Table
+    ### Technical Setup (entry zone, stop-loss, target)
+    ### Risk Factors & Mitigants
+    ### Macro Context Alignment
+    ### Price Target & Valuation Basis
+    
+    ## Rejected Candidates
+    For each rejected stock: reason for rejection (1 paragraph each)
+    
+    ## Scoring Summary Table
+    
+    Today's date: {current_date}
+  expected_output: >
+    A complete investment report in markdown with scoring table, selected stock analysis,
+    rejected candidates, and push notification confirmation. Output to decision.md
   agent: stock_picker
   context:
-    - research_trending_companies
+    - find_psx_trending_stocks
+    - analyze_pakistan_macro
+    - research_company_financials
+    - perform_technical_analysis
+    - assess_investment_risks
   output_file: output/decision.md
