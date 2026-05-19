@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+ 
 """
 PSX Stock Picker — Pakistan Stock Exchange Investment Research Agent
 ====================================================================
@@ -24,23 +24,12 @@ from stock_picker.crew import StockPicker
 
 warnings.filterwarnings("ignore", category=SyntaxWarning, module="pysbd")
 
-
-# ── Configuration ───────────────────────────────────────────────────────────────
-
-# Set to a specific PSX sector or "General" to scan across all KSE-100 sectors.
-# Valid options: Technology, Banking, Cement, Fertiliser, Oil & Gas Exploration,
-#                Oil Marketing, Textile, Power Generation, Automobile Assembler,
-#                Food & Beverages, Pharma, Chemical, General
 TARGET_SECTOR = os.getenv("PSX_SECTOR", "General")
 
-
-# ── Output directory ────────────────────────────────────────────────────────────
 
 def ensure_output_dir() -> None:
     os.makedirs("output", exist_ok=True)
 
-
-# ── Main ────────────────────────────────────────────────────────────────────────
 
 def run() -> None:
     """
@@ -58,7 +47,7 @@ def run() -> None:
     inputs = {
         "sector": TARGET_SECTOR,
         "current_date": datetime.now().strftime("%A, %d %B %Y"),
-        # Placeholder; will be populated by macro task output
+  
         "macro_environment": "Refer to macro analysis task output.",
     }
 
