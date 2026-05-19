@@ -17,3 +17,6 @@ dependencies = [
 members = [
     "crewai/stock_picker",
 ]
+
+[tool.uv]
+prerelease = "allow"
