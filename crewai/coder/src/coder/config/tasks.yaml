@@ -1,0 +1,168 @@
+extract_task:
+  description: >
+    Use the PDF Reader tool to read the CV at {cv_path}.
+    Extract ALL sections and return structured JSON with every
+    field found. Do not skip any section even if unusual.
+  expected_output: >
+    A JSON object containing all CV sections and their content.
+  agent: cv_extractor
+
+format_task:
+  description: >
+    Take the extracted CV JSON and reformat it into the target
+    template structure. Apply these user changes: {changes}.
+    Follow these exact template requirements: {template_requirements}.
+    Keep ALL information, just reformat the style and layout.
+    Do not invent your own arrangement if the template requirements
+    specify a different section order, heading wording, density,
+    alignment, or hierarchy.
+    If the template requirements imply a compact one-page resume,
+    compress wording carefully while preserving key facts and
+    achievements rather than expanding content into a looser layout.
+  expected_output: >
+    A complete formatted CV content ready for PDF generation,
+    structured to match the target template.
+  agent: cv_formatter
+  context: [extract_task]
+
+generate_task:
+  description: >
+    Generate a Python script using ReportLab that creates a PDF CV
+    and saves it to outputs/generated_cv.pdf. The page size must be A4
+    from reportlab.lib.pagesizes import A4. The entire CV must fit on
+    exactly one page by adjusting font sizes, spacing, and line heights
+    as needed without removing content.
+
+    Do not use WeasyPrint, HTML, browser rendering, or any library requiring
+    external GTK, Pango, or other native GUI dependencies. Use only ReportLab
+    and Python standard library features.
+
+    Never redefine built-in ReportLab style names such as Title, BodyText,
+    Bullet, Italic, Code, Heading1, Heading2, or Heading3. Always create
+    unique custom style names such as CVName, CVContact, CVSectionHeading,
+    CVBody, CVBullet, CVSkillLine, CVJobTitle, CVJobMeta, CVProjectHeading,
+    and CVEducation. Do not create duplicate custom style names either.
+    Define each custom style once and reuse it consistently.
+
+    IMPORTANT RUNTIME SAFETY RULES:
+    1. If you perform a fit-check by calling build() on a temporary document,
+       never reuse that same story or flowables list for the final PDF build.
+       ReportLab may consume or mutate flowables during build().
+       Always rebuild a fresh story before the final doc.build(...).
+    2. The final PDF must be a complete readable PDF with at least one page.
+       Avoid code patterns that can create truncated, empty, or corrupted PDFs.
+    3. Output only pure Python source code. Do not include markdown fences,
+       prose, explanations, or trailing non-Python text.
+    4. Avoid Unicode corruption from copied symbols. Do not use emoji icons
+       for contact info. Prefer plain text separators. For bullets, use a
+       standard ReportLab bulletText approach or a safe plain bullet character.
+
+    EXACT LAYOUT AND DESIGN SPECIFICATION:
+
+    PAGE MARGINS:
+    0.55 inch on all four sides.
+
+    FONTS:
+    Use only ReportLab built-in fonts.
+    Name: Helvetica-Bold, 17pt.
+    Contact line: Helvetica, 8.5pt.
+    Section headings: Helvetica-Bold, 9pt.
+    Body text and bullets: Helvetica, 8.5pt.
+    Job and project heading lines: Helvetica-Bold, 8.5pt.
+    Skill group labels: Helvetica-Bold, 8.5pt.
+
+    HEADER BLOCK:
+    1. Full name centered, ALL CAPS, color #1a1a1a.
+    2. A 3pt spacer below the name.
+    3. One centered contact line in this order:
+       email | phone | LinkedIn | GitHub | City, Country.
+       Omit missing items and their separators.
+    4. A thin horizontal rule, 0.6pt, color #cccccc, across full text width,
+       5pt below contact.
+
+    SECTION HEADINGS:
+    Uppercase, left-aligned, Helvetica-Bold 9pt, color #1a1a1a.
+    A 1pt rule in color #cccccc immediately below the heading with a 2pt gap.
+    4pt above each heading and 3pt below the rule before content begins.
+
+    SECTION ORDER:
+    PROFILE -> TECHNICAL SKILLS -> SOFT SKILLS -> PROFESSIONAL EXPERIENCE
+    -> PERSONAL PROJECTS -> EDUCATION
+
+    If the input CV does not have one of these sections, skip it silently.
+    If the input CV has additional sections such as CERTIFICATIONS, LANGUAGES,
+    AWARDS, PUBLICATIONS, or VOLUNTEER, insert them after PERSONAL PROJECTS
+    and before EDUCATION using the same heading style. Do not drop content.
+
+    PROFILE SECTION:
+    One dense justified paragraph, Helvetica 8.5pt, color #333333, leading 11pt.
+    No bullets.
+
+    TECHNICAL SKILLS SECTION:
+    Each skill group on its own line as:
+    "<b>Label:</b> value1, value2, value3"
+    Helvetica 8.5pt, leading 11pt, left aligned.
+    If the input has no grouped skills, list all skills under one label.
+
+    SOFT SKILLS SECTION:
+    Single compact line or two if necessary.
+    Items separated by "  -  " or a safe bullet separator.
+    No emoji bullets.
+
+    PROFESSIONAL EXPERIENCE SECTION:
+    For each role:
+    Line 1: "<b>Job Title</b>  |  <b>Company Name</b>"
+    Line 2: Date range in Helvetica 8pt, color #555555, 1pt below line 1.
+    Then bullet points in Helvetica 8.5pt, leading 11pt, left indent 10pt.
+    6pt gap between roles.
+    Skip the section if there is no professional experience.
+
+    PERSONAL PROJECTS SECTION:
+    For each project:
+    Heading line: "<b>Project Name</b> - Tech Stack"
+    Then bullet points in Helvetica 8.5pt, leading 11pt, left indent 10pt.
+    5pt gap between projects.
+    If tech stack is missing, use only the project name.
+
+    EDUCATION SECTION:
+    For each entry:
+    Line 1: "<b>Degree / Qualification</b>"
+    Line 2: Institution name in Helvetica 8.5pt.
+    Line 3: Date range in Helvetica 8pt, color #555555.
+    4pt gap between entries.
+
+    SPACING RULES:
+    Space between sections: 5pt.
+    Bullet point leading: 11pt.
+    If content still overflows, reduce body font sizes by 0.5pt increments
+    down to 7.5pt and reduce spacers by 1pt increments until it fits.
+    Never remove content to force fit.
+
+    COLOR PALETTE:
+    Headings and name: #1a1a1a.
+    Body text: #333333.
+    Metadata: #555555.
+    Rules and dividers: #cccccc.
+    Background: white.
+
+    The generated script must:
+    1. Accept no command-line arguments because all content is hard-coded
+       from the formatted CV.
+    2. Create the outputs directory if it does not exist.
+    3. Save the final PDF to outputs/generated_cv.pdf.
+    4. Be valid runnable Python with no syntax errors.
+    5. Not omit any section present in the formatted CV data.
+    6. Not add graphics, icons, sidebars, color blocks, or decorations
+       not specified above.
+    7. Avoid ReportLab runtime errors from duplicate style names.
+    8. Avoid corrupted or empty PDFs by rebuilding flowables fresh before
+       the final build.
+    9. Output only valid Python code with no markdown or explanatory text.
+
+    Follow these exact template requirements: {template_requirements}.
+  expected_output: >
+    A valid Python script using ReportLab that generates the CV as a
+    single A4 page PDF and saves it to outputs/generated_cv.pdf.
+  agent: pdf_generator
+  context: [format_task]
+  output_file: outputs/generated_cv.py

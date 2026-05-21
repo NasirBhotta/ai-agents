@@ -16,6 +16,7 @@ dependencies = [
 [tool.uv.workspace]
 members = [
     "crewai/debate",
+    "crewai/coder",
     "crewai/stock_picker",
 ]
 
