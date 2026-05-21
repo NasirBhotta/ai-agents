@@ -1,548 +1,521 @@
 from reportlab.lib.pagesizes import A4
-from reportlab.platypus import (
-    SimpleDocTemplate,
-    Paragraph,
-    Spacer,
-    KeepTogether,
-    FrameBreak,
-)
+from reportlab.lib.units import inch
+from reportlab.lib.colors import HexColor, black
+from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer, PageBreak,
+                                Frame, KeepInFrame, Table, TableStyle)
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_JUSTIFY
-from reportlab.lib.units import inch
-from reportlab.lib import colors
-from reportlab.pdfbase.pdfmetrics import stringWidth
-
 import os
 
 
-def create_cv():
-    # Output setup
+def create_cv_pdf():
+    # Output directory and file
     output_dir = "outputs"
-    os.makedirs(output_dir, exist_ok=True)
-    output_path = os.path.join(output_dir, "generated_cv.pdf")
+    output_file = os.path.join(output_dir, "generated_cv.pdf")
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
 
+    # Page setup
     PAGE_WIDTH, PAGE_HEIGHT = A4
+    MARGIN = 0.55 * inch
+    USABLE_WIDTH = PAGE_WIDTH - 2 * MARGIN
 
-    # Margins
-    margin = 0.55 * inch
-    usable_width = PAGE_WIDTH - 2 * margin
+    # Color palette
+    COLOR_HEADER = HexColor("#1a1a1a")
+    COLOR_BODY = HexColor("#333333")
+    COLOR_META = HexColor("#555555")
+    COLOR_RULE = HexColor("#cccccc")
+    COLOR_WHITE = HexColor("#ffffff")
 
-    # Base font sizes, may adapt if needed
-    name_font_size = 17
-    contact_font_size = 8.5
-    heading_font_size = 9
-    body_font_size = 8.5
-    bullet_font_size = 8.5
-    job_project_heading_font_size = 8.5
-    meta_font_size = 8
-    soft_skills_font_size = 8.5
+    # Base font sizes (will be adjusted for fit)
+    base_name_font_size = 17
+    base_contact_font_size = 8.5
+    base_section_heading_font_size = 9
+    base_body_font_size = 8.5
+    base_body_leading = 11
+    base_meta_font_size = 8
+    base_bullet_leading = 11
+    base_job_meta_font_size = 8
 
-    # Colors
-    COLOR_NAME_HEADING = colors.HexColor("#1a1a1a")
-    COLOR_BODY = colors.HexColor("#333333")
-    COLOR_META = colors.HexColor("#555555")
-    COLOR_RULE = colors.HexColor("#cccccc")
-
-    # Styles unique names per instructions
-    styles = {}
-
-    def make_styles(body_font_pt):
-        # Clear and reset styles dict values everytime to avoid duplicates
-        styles.clear()
-        styles["CVName"] = ParagraphStyle(
+    # Define styles (unique style names)
+    styles = {
+        "CVName": ParagraphStyle(
             "CVName",
             fontName="Helvetica-Bold",
-            fontSize=name_font_size,
-            leading=name_font_size * 1.1,
+            fontSize=base_name_font_size,
+            leading=base_name_font_size * 1.1,
             alignment=TA_CENTER,
-            textColor=COLOR_NAME_HEADING,
-            spaceAfter=3,  # 3 pt spacer below the name
-        )
-        styles["CVContact"] = ParagraphStyle(
+            textColor=COLOR_HEADER,
+            uppercase=True,
+            spaceAfter=3,
+        ),
+        "CVContact": ParagraphStyle(
             "CVContact",
             fontName="Helvetica",
-            fontSize=contact_font_size,
-            leading=contact_font_size * 1.1,
+            fontSize=base_contact_font_size,
+            leading=base_contact_font_size * 1.1,
             alignment=TA_CENTER,
-            textColor=COLOR_BODY,
-            spaceAfter=5,  # 5pt below rule, will adjust with rule spacer
-        )
-        styles["CVSectionHeading"] = ParagraphStyle(
+            textColor=black,
+        ),
+        "CVSectionHeading": ParagraphStyle(
             "CVSectionHeading",
             fontName="Helvetica-Bold",
-            fontSize=heading_font_size,
-            leading=heading_font_size * 1.1,
+            fontSize=base_section_heading_font_size,
+            leading=base_section_heading_font_size * 1.1,
             alignment=TA_LEFT,
-            textColor=COLOR_NAME_HEADING,
+            textColor=COLOR_HEADER,
             spaceBefore=4,
-            spaceAfter=5,  # includes spacing for rule and below
-        )
-        styles["CVSectionRuleSpacer"] = Spacer(1, 2)  # 2pt gap between rule and content
-
-        styles["CVBody"] = ParagraphStyle(
+            spaceAfter=3,
+            uppercase=True,
+        ),
+        "CVBody": ParagraphStyle(
             "CVBody",
             fontName="Helvetica",
-            fontSize=body_font_pt,
-            leading=11,
+            fontSize=base_body_font_size,
+            leading=base_body_leading,
             alignment=TA_JUSTIFY,
             textColor=COLOR_BODY,
-            spaceAfter=4,
-        )
-        styles["CVSkillLine"] = ParagraphStyle(
+        ),
+        "CVSkillLine": ParagraphStyle(
             "CVSkillLine",
             fontName="Helvetica",
-            fontSize=body_font_pt,
-            leading=11,
+            fontSize=base_body_font_size,
+            leading=base_body_leading,
             alignment=TA_LEFT,
             textColor=COLOR_BODY,
-            spaceAfter=3,
-        )
-
-        styles["CVSkillLabel"] = ParagraphStyle(
+        ),
+        "CVSkillLabel": ParagraphStyle(
             "CVSkillLabel",
             fontName="Helvetica-Bold",
-            fontSize=body_font_pt,
-            leading=11,
+            fontSize=base_body_font_size,
+            leading=base_body_leading,
             alignment=TA_LEFT,
             textColor=COLOR_BODY,
-            spaceAfter=0,
-        )
-
-        styles["CVSoftSkill"] = ParagraphStyle(
-            "CVSoftSkill",
+        ),
+        "CVSoftSkills": ParagraphStyle(
+            "CVSoftSkills",
             fontName="Helvetica",
-            fontSize=soft_skills_font_size,
-            leading=11,
+            fontSize=base_body_font_size,
+            leading=base_body_leading,
             alignment=TA_LEFT,
             textColor=COLOR_BODY,
-            spaceAfter=5,
-        )
-        styles["CVJobTitle"] = ParagraphStyle(
+        ),
+        "CVJobTitle": ParagraphStyle(
             "CVJobTitle",
             fontName="Helvetica-Bold",
-            fontSize=job_project_heading_font_size,
-            leading=11,
+            fontSize=base_body_font_size,
+            leading=base_body_leading,
             alignment=TA_LEFT,
             textColor=COLOR_BODY,
-            spaceAfter=0,
-        )
-        styles["CVJobMeta"] = ParagraphStyle(
+        ),
+        "CVJobMeta": ParagraphStyle(
             "CVJobMeta",
             fontName="Helvetica",
-            fontSize=meta_font_size,
-            leading=meta_font_size * 1.1,
+            fontSize=base_job_meta_font_size,
+            leading=base_job_meta_font_size * 1.15,
             alignment=TA_LEFT,
             textColor=COLOR_META,
-            spaceAfter=4,
-            leftIndent=0,
-        )
-        styles["CVJobBullet"] = ParagraphStyle(
-            "CVJobBullet",
+            spaceBefore=1,
+            spaceAfter=2,
+        ),
+        "CVBullet": ParagraphStyle(
+            "CVBullet",
             fontName="Helvetica",
-            fontSize=bullet_font_size,
-            leading=11,
-            alignment=TA_LEFT,
-            textColor=COLOR_BODY,
+            fontSize=base_body_font_size,
+            leading=base_bullet_leading,
             leftIndent=10,
             bulletIndent=0,
-            spaceAfter=2,
-        )
-        styles["CVProjectHeading"] = ParagraphStyle(
+            bulletFontName="Helvetica",
+            bulletFontSize=base_body_font_size,
+            textColor=COLOR_BODY,
+            alignment=TA_LEFT,
+            spaceBefore=0,
+            spaceAfter=0,
+        ),
+        "CVProjectHeading": ParagraphStyle(
             "CVProjectHeading",
             fontName="Helvetica-Bold",
-            fontSize=job_project_heading_font_size,
-            leading=11,
+            fontSize=base_body_font_size,
+            leading=base_body_leading,
             alignment=TA_LEFT,
             textColor=COLOR_BODY,
-            spaceAfter=2,
-        )
-        styles["CVProjectBullet"] = ParagraphStyle(
-            "CVProjectBullet",
-            fontName="Helvetica",
-            fontSize=bullet_font_size,
-            leading=11,
-            alignment=TA_LEFT,
-            textColor=COLOR_BODY,
-            leftIndent=10,
-            bulletIndent=0,
-            spaceAfter=2,
-        )
-        styles["CVEducationDegree"] = ParagraphStyle(
+        ),
+        "CVEducationDegree": ParagraphStyle(
             "CVEducationDegree",
             fontName="Helvetica-Bold",
-            fontSize=body_font_pt,
-            leading=11,
+            fontSize=base_body_font_size,
+            leading=base_body_leading,
             alignment=TA_LEFT,
             textColor=COLOR_BODY,
-            spaceAfter=0,
-        )
-        styles["CVEducationInst"] = ParagraphStyle(
-            "CVEducationInst",
+        ),
+        "CVEducationSchool": ParagraphStyle(
+            "CVEducationSchool",
             fontName="Helvetica",
-            fontSize=body_font_pt,
-            leading=11,
+            fontSize=base_body_font_size,
+            leading=base_body_leading,
             alignment=TA_LEFT,
             textColor=COLOR_BODY,
-            spaceAfter=0,
-        )
-        styles["CVEducationDate"] = ParagraphStyle(
+        ),
+        "CVEducationDate": ParagraphStyle(
             "CVEducationDate",
             fontName="Helvetica",
-            fontSize=meta_font_size,
-            leading=meta_font_size * 1.1,
+            fontSize=base_meta_font_size,
+            leading=base_meta_font_size * 1.15,
             alignment=TA_LEFT,
             textColor=COLOR_META,
-            spaceAfter=4,
-        )
-
-    # Input CV data hardcoded
-    CV_DATA = {
-        "name": "NASIR SHAHZAD",
-        "contact": {
-            "email": "nasirbhotta@gmail.com",
-            "phone": "0313-7576531",
-            "linkedin": "https://www.linkedin.com/in/me-bhotta",
-            "github": "https://github.com/NasirBhotta",
-            "location": "Hostel City, Islamabad",
-        },
-        "profile": "Flutter Developer with 1.5 years of experience building scalable, high-performance cross-platform apps. Skilled in Flutter, Dart, Firebase, REST APIs, and clean architecture patterns including MVVM and BLoC. Proven success delivering production-ready apps featuring offline-first design, real-time synchronization, notifications, and secure backups. Experienced full-stack developer with Node.js, Express.js, and MongoDB backend integration. Passionate about clean UI, efficient code, teamwork, and delivering impactful mobile solutions.",
-        "technical_skills": {
-            "Languages & Frameworks": "Flutter, Dart, JavaScript, Node.js, Express.js",
-            "Databases": "Firebase, MongoDB, MySQL",
-            "Core CS Concepts": "Clean Architecture (MVVM, BLoC), REST APIs, Agile Methodology",
-            "Tools & Platforms": "Git, Linux, AWS, Docker",
-        },
-        "soft_skills": [
-            "Teamwork",
-            "Communication",
-            "Problem Solving",
-            "Adaptability",
-            "Continuous Learning",
-        ],
-        "professional_experience": [
-            {
-                "job_title": "Flutter App Developer",
-                "company": "Self-employed / Freelance",
-                "dates": "Dates not specified",
-                "bullets": [],  # no bullets defined in given data
-            }
-        ],
-        "personal_projects": [
-            {
-                "name": "BrainBee",
-                "tech_stack": "Flutter / Node.js / Express.js / MongoDB",
-                "bullets": [
-                    "Developed AI-powered personalized learning app with adaptive study plans, AI flashcards, quizzes, summaries, and RAG chatbot integration.",
-                    "Added gamification features: peer battles, leaderboards, badges, and motivation system.",
-                    "Designed scalable cross-platform architecture.",
-                ],
-            },
-            {
-                "name": "Ecommerce App",
-                "tech_stack": "Flutter / Firebase / Stripe / GetX",
-                "bullets": [
-                    "Built scalable Flutter e-commerce platforms with separate customer and admin apps.",
-                    "Implemented full shopping flow: authentication, product catalog, wishlist, cart, coupons, checkout, orders, notifications, and profile management with Hive and GetStorage caching.",
-                    "Integrated secure Stripe payments with Firebase Cloud Functions, including PaymentSheet, stored cards, wallet funding, and webhook transaction handling.",
-                    "Developed role-based admin dashboard for analytics, order/product management, approvals, notifications, risk alerts, exports, and audit logs.",
-                ],
-            },
-            {
-                "name": "Ride Sharing App",
-                "tech_stack": "Flutter / Firebase / Google Maps API",
-                "bullets": [
-                    "Built full-stack ride-sharing app with three user roles: rider, driver, admin.",
-                    "Implemented real-time ride tracking with live GPS, polyline route visualization, and turn-by-turn voice navigation using Google Directions API and Flutter TTS.",
-                    "Developed admin dashboard with Firestore live metrics, revenue analytics, ride management, and real-time user control.",
-                    "Designed smart ride-matching and communication with radius-based driver search, off-route rerouting, and in-app messaging.",
-                ],
-            },
-        ],
-        "education": [
-            {
-                "degree": "FSc Pre Engineering",
-                "institution": "Punjab Group of Colleges Phalia Campus",
-                "dates": "04/2019 - 02/2021 | Phalia, Punjab",
-            },
-            {
-                "degree": "Bachelor of Science in Computer Science",
-                "institution": "COMSATS University Islamabad",
-                "dates": "02/2022 - 01/2026 | Islamabad, Pakistan",
-            },
-        ],
+            spaceBefore=0,
+        ),
     }
 
-    def draw_horizontal_rule(canvas, y_pos, width, x_start, thickness=0.6, color=COLOR_RULE):
-        canvas.setStrokeColor(color)
-        canvas.setLineWidth(thickness)
-        canvas.line(x_start, y_pos, x_start + width, y_pos)
+    # CV Content (formatted as per context)
+    full_name = "NASIR SHAHZAD"
 
-    def build_story(body_pt):
-        story = []
+    contact_info = {
+        "email": "nasirbhotta@gmail.com",
+        "phone": "0313-7576531",
+        "linkedin": "https://www.linkedin.com/in/me-bhotta",
+        "github": "https://github.com/NasirBhotta",
+        "location": "Hostel City, Islamabad"
+    }
 
-        # HEADER BLOCK
-
-        # Name uppercase, large bold, centered, #1a1a1a
-        name_text = CV_DATA["name"].upper()
-        story.append(Paragraph(name_text, styles["CVName"]))
-        # Spacer 3 pt handled by spaceAfter of CVName style
-
-        # Contact line centered, email | phone | linkedin | github | city,country
-        contact_items = []
-        c = CV_DATA["contact"]
-        if c.get("email"):
-            contact_items.append(c["email"])
-        if c.get("phone"):
-            contact_items.append(c["phone"])
-        if c.get("linkedin"):
-            contact_items.append(c["linkedin"])
-        if c.get("github"):
-            contact_items.append(c["github"])
-        if c.get("location"):
-            contact_items.append(c["location"])
-
-        contact_line = " | ".join(contact_items)
-        if contact_line:
-            story.append(Paragraph(contact_line, styles["CVContact"]))
-        else:
-            # Add a small spacer if no contact to preserve spacing
-            story.append(Spacer(1, 5))
-
-        # Horizontal rule 0.6pt, full text width (= usable_width)
-        # We'll create a Flowable to draw a line manually using Canvas in onLaterPages
-        # But to ensure line is under contact, add a Spacer(5pt) then draw line manually using a canvas callback
-        # As workaround, add Spacer(0,5) then draw rule just below contact line in canvas after build
-        # But per instructions no extra decorations; so do this with Flowable hack
-        # Instead create a custom Flowable here for rule:
-
-        from reportlab.platypus import Flowable
-
-        class HR(Flowable):
-            def __init__(self, width, thickness=0.6, color=COLOR_RULE):
-                Flowable.__init__(self)
-                self.width = width
-                self.thickness = thickness
-                self.color = color
-                self.height = thickness
-
-            def draw(self):
-                self.canv.setStrokeColor(self.color)
-                self.canv.setLineWidth(self.thickness)
-                self.canv.line(0, self.thickness / 2.0, self.width, self.thickness / 2.0)
-
-        story.append(Spacer(1, 5))  # 5pt below contact line before rule
-        story.append(HR(usable_width, thickness=0.6, color=COLOR_RULE))
-        story.append(Spacer(1, 3))  # 3pt spacer below rule
-
-        # SECTION ORDER:
-        # PROFILE -> TECHNICAL SKILLS -> SOFT SKILLS -> PROFESSIONAL EXPERIENCE -> PERSONAL PROJECTS -> EDUCATION
-        # Also note rule & spacing between sections: 5pt
-
-        def add_section_heading(text):
-            story.append(Spacer(1, 4))  # 4pt above heading
-            story.append(Paragraph(text.upper(), styles["CVSectionHeading"]))
-            # A 1pt rule immediately under heading + 2pt gap handled by special spacer and drawing rule here
-            # Insert rule just below heading text (1pt line). No stock flowable for it, use HR of 1pt height and 1pt thickness
-            story.append(HR(usable_width, thickness=1, color=COLOR_RULE))
-            story.append(Spacer(1, 2))  # gap below rule before content
-
-        # PROFILE
-        if CV_DATA.get("profile"):
-            add_section_heading("Profile")
-            profile_para = Paragraph(CV_DATA["profile"], styles["CVBody"])
-            story.append(profile_para)
-            story.append(Spacer(1, 5))  # spacing to next section
-
-        # TECHNICAL SKILLS
-        if CV_DATA.get("technical_skills"):
-            add_section_heading("Technical Skills")
-            # For each group: Label in bold then ": " values as normal text
-            for label, value in CV_DATA["technical_skills"].items():
-                # Compose text as <b>Label:</b> value
-                skill_line = f'<b>{label}:</b> {value}'
-                p = Paragraph(skill_line, styles["CVSkillLine"])
-                story.append(p)
-            story.append(Spacer(1, 5))
-
-        # SOFT SKILLS
-        if CV_DATA.get("soft_skills"):
-            add_section_heading("Soft Skills")
-            # Join with "  -  " bullet substitute between items compact, max 2 lines
-            soft_skills_text = "  -  ".join(CV_DATA["soft_skills"])
-            # Use CVSoftSkill style, which is one line or two if necessary
-            p = Paragraph(soft_skills_text, styles["CVSoftSkill"])
-            story.append(p)
-            story.append(Spacer(1, 5))
-
-        # PROFESSIONAL EXPERIENCE
-        if CV_DATA.get("professional_experience"):
-            # Filter out empty list or empty meaningful content
-            if len(CV_DATA["professional_experience"]) > 0:
-                add_section_heading("Professional Experience")
-                first = True
-                for role in CV_DATA["professional_experience"]:
-                    if not first:
-                        story.append(Spacer(1, 6))  # 6pt gap between roles
-                    first = False
-                    # Line 1: "<b>Job Title</b>  |  <b>Company Name</b>"
-                    job_line = f'<b>{role["job_title"]}</b>  |  <b>{role["company"]}</b>'
-                    story.append(Paragraph(job_line, styles["CVJobTitle"]))
-                    # Line 2: Date range Helvetica 8pt, color #555555, 1pt below line 1
-                    story.append(Spacer(1, 1))
-                    dates_text = role.get("dates", "")
-                    story.append(Paragraph(dates_text, styles["CVJobMeta"]))
-                    # Bullets
-                    for bullet in role.get("bullets", []):
-                        story.append(
-                            Paragraph(bullet, styles["CVJobBullet"], bulletText="•")
-                        )
-
-                story.append(Spacer(1, 5))
-
-        # PERSONAL PROJECTS
-        if CV_DATA.get("personal_projects"):
-            add_section_heading("Personal Projects")
-            first = True
-            for proj in CV_DATA["personal_projects"]:
-                if not first:
-                    story.append(Spacer(1, 5))
-                first = False
-                # Heading line: <b>Project Name</b> - Tech Stack (omit dash if no tech stack)
-                pj_heading = proj["name"]
-                if proj.get("tech_stack") and proj["tech_stack"].strip():
-                    pj_heading += " – " + proj["tech_stack"]
-                story.append(Paragraph(pj_heading, styles["CVProjectHeading"]))
-                for bullet in proj.get("bullets", []):
-                    story.append(
-                        Paragraph(bullet, styles["CVProjectBullet"], bulletText="•")
-                    )
-            story.append(Spacer(1, 5))
-
-        # EDUCATION
-        if CV_DATA.get("education"):
-            add_section_heading("Education")
-            first = True
-            for edu in CV_DATA["education"]:
-                if not first:
-                    story.append(Spacer(1, 4))
-                first = False
-                # Line 1: <b>Degree / Qualification</b>
-                story.append(Paragraph(edu["degree"], styles["CVEducationDegree"]))
-                # Line 2: Institution name
-                story.append(Paragraph(edu["institution"], styles["CVEducationInst"]))
-                # Line 3: Date range in Helvetica 8pt, color #555555
-                story.append(Paragraph(edu["dates"], styles["CVEducationDate"]))
-
-        return story
-
-    # Function to check overflow and adapt scaling
-    def does_story_fit(body_pt, spacing_reduction):
-        from reportlab.platypus import BaseDocTemplate, Frame, PageTemplate
-
-        # Define styles with given body_pt
-        make_styles(body_pt)
-
-        class MyDocTemplate(BaseDocTemplate):
-            def __init__(self, filename, **kwargs):
-                BaseDocTemplate.__init__(self, filename, **kwargs)
-                frame = Frame(
-                    margin,
-                    margin,
-                    usable_width,
-                    PAGE_HEIGHT - 2 * margin,
-                    leftPadding=0,
-                    bottomPadding=0,
-                    rightPadding=0,
-                    topPadding=0,
-                    showBoundary=0,
-                )
-                pt = PageTemplate(id="normal", frames=[frame])
-                self.addPageTemplates([pt])
-                self._flowable_count = 0
-
-            def afterFlowable(self, flowable):
-                self._flowable_count += 1
-
-        # Build a doc on a dummy buffer to check if fits
-        doc = MyDocTemplate("dummy.pdf", pagesize=A4)
-        story = build_story(body_pt)
-
-        # Reduce spacings (not easy since spacers are hardcoded)
-        # We'll try a hack: remove extra spacers or shrink them by spacing_reduction
-        # The build_story uses constant spacers so here is not trivial to manipulate directly
-        # So we accept no spacing reduction here to keep code simpler
-        # The instructions say reduce spacers by 1pt increments if needed
-        # But given we only have at most 5pt spacer between sections, and small spacing, we keep it inline for demo
-
-        # Try build and check if pages > 1
-        # If multiple pages, means overflow
-
-        story_copy = []
-        for flow in story:
-            story_copy.append(flow)
-
-        try:
-            doc.build(story_copy)
-            # If build ok, read page count
-            # We do not read PDF here, just assume no error means fits
-            # But build alone does not tell pages directly
-            # So we can check doc.page count by subclassing and counting pages if needed
-            # We will rely on no exception as "fits"
-            return True
-        except Exception:
-            return False
-
-    # Adaptive fitting: decrease body font size from 8.5 down to 7.5 if needed
-    # Not implemented complex spacer shrinking for brevity and complexity; major content is compact
-    final_body_font = body_font_size
-    fits = does_story_fit(final_body_font, 0)
-    if not fits:
-        for f in [8.0, 7.5]:
-            if does_story_fit(f, 0):
-                final_body_font = f
-                break
-
-    # Recreate final styles accordingly
-    make_styles(final_body_font)
-
-    # Build final story
-    final_story = build_story(final_body_font)
-
-    # Create document
-    doc = SimpleDocTemplate(
-        output_path,
-        pagesize=A4,
-        rightMargin=margin,
-        leftMargin=margin,
-        topMargin=margin,
-        bottomMargin=margin,
-        allowSplitting=1,
+    profile_text = (
+        "Flutter Developer with 1.5 years of experience building scalable, high-performance cross-platform apps. "
+        "Skilled in Flutter, Dart, Firebase, REST APIs, and clean architecture (MVVM, BLoC). Proven record delivering "
+        "production-ready apps featuring offline-first design, real-time sync, notifications, and secure backups. "
+        "Experienced in full-stack development with Node.js, Express.js, and MongoDB for seamless backend integration. "
+        "Passionate about clean UI, efficient code, teamwork, and impactful mobile solutions."
     )
 
-    # Wrapper for drawing section rules below headings
+    technical_skills = {
+        "Languages & Frameworks:": "Flutter, Dart, JavaScript, Node.js, Express.js",
+        "Databases:": "MongoDB, MySQL, Firebase",
+        "Core CS Concepts:": "Clean Architecture (MVVM, BLoC), REST APIs, Agile Methodology",
+        "Tools & Platforms:": "Git, Linux, AWS, Docker",
+    }
+
+    soft_skills = [
+        "Teamwork",
+        "Efficient Coding",
+        "Clean UI Design",
+        "Problem Solving",
+        "Continuous Learning",
+        "Communication"
+    ]
+
+    professional_experience = [
+        {
+            "job_title": "Flutter App Developer",
+            "company": "Various Projects",
+            "date_range": "01/2022 – Present",
+            "bullets": [
+                "Developed BrainBee, an AI-powered personalized learning app with adaptive study plans, AI-generated flashcards, quizzes, RAG chatbot, and gamification (peer battles, leaderboards, badges) using Flutter, Node.js/Express.js, and MongoDB implementing scalable architecture.",
+                "Built scalable Flutter e-commerce platform with separate customer and admin apps using Firebase, Stripe, GetX architecture; implemented full shopping flow with authentication, catalog, wishlist, cart, coupons, checkout, orders, notifications, and profile management with local caching (Hive, GetStorage). Integrated secure Stripe payments via Firebase Cloud Functions including PaymentSheet, saved cards, wallet funding, and webhook transaction handling. Created admin dashboard for order/product management, analytics, withdrawal approvals, notifications, risk alerts, exports, and audit logging.",
+                "Created full-stack ride-sharing mobile app with Flutter, Firebase, Google Maps API supporting rider, driver, and admin roles. Features include real-time ride tracking with live GPS, polyline route visualization, turn-by-turn voice navigation (Google Directions API, Flutter TTS), admin dashboard with live Firestore metrics, revenue charts, ride/user management, and smart ride-matching with radius-based search, rerouting, and in-app messaging."
+            ],
+        }
+    ]
+
+    personal_projects = [
+        {
+            "name": "BrainBee",
+            "tech_stack": "Flutter, Node.js, Express.js, MongoDB",
+            "bullets": [
+                "AI-driven adaptive learning with flashcards, quizzes, chatbot and gamification features.",
+                "Designed scalable cross-platform architecture supporting real-time sync and offline support."
+            ],
+        },
+        {
+            "name": "Ecommerce App",
+            "tech_stack": "Flutter, Firebase, Stripe, GetX",
+            "bullets": [
+                "Developed end-to-end shopping platform with customer and admin apps.",
+                "Integrated secure payments and admin analytics dashboard with audit features."
+            ],
+        },
+        {
+            "name": "Ride Sharing App",
+            "tech_stack": "Flutter, Firebase, Google Maps API",
+            "bullets": [
+                "Built multi-role ride-sharing platform with real-time tracking, navigation, admin controls.",
+                "Implemented smart ride-matching, off-route rerouting, and in-app rider-driver communication."
+            ],
+        }
+    ]
+
+    education_entries = [
+        {
+            "degree": "FSc Pre Engineering",
+            "institution": "Punjab Group of Colleges Phalia Campus",
+            "date_range": "04/2019 - 02/2021 | Phalia, Punjab"
+        },
+        {
+            "degree": "Bachelor of Science in Computer Science",
+            "institution": "COMSATS University Islamabad",
+            "date_range": "02/2022 - 01/2026 | Islamabad, Pakistan"
+        }
+    ]
+
+    # Function to create a horizontal rule line (Rule) spanning usable width
     from reportlab.platypus import Flowable
 
-    class RuleAfterHeading(Flowable):
-        def __init__(self, width, thickness=1, color=COLOR_RULE):
+    class HRLine(Flowable):
+        def __init__(self, width, thickness, color):
             Flowable.__init__(self)
             self.width = width
             self.thickness = thickness
             self.color = color
-            self.height = thickness + 2  # 1pt line + 2pt gap
+            self.height = thickness
 
         def draw(self):
             self.canv.setStrokeColor(self.color)
             self.canv.setLineWidth(self.thickness)
-            self.canv.line(0, self.thickness / 2.0, self.width, self.thickness / 2.0)
+            self.canv.line(0, self.height / 2.0, self.width, self.height / 2.0)
 
         def wrap(self, availWidth, availHeight):
-            return (self.width, self.height)
+            return self.width, self.height
 
-    # We cannot insert RuleAfterHeading after each heading easily now since build_story uses HR flowables
-    # So already added
+    # Prepare contact line (omit missing and separators)
+    contact_parts = []
+    if contact_info.get("email"):
+        contact_parts.append(contact_info["email"])
+    if contact_info.get("phone"):
+        contact_parts.append(contact_info["phone"])
+    if contact_info.get("linkedin"):
+        contact_parts.append(contact_info["linkedin"])
+    if contact_info.get("github"):
+        contact_parts.append(contact_info["github"])
+    if contact_info.get("location"):
+        contact_parts.append(contact_info["location"])
+    contact_line_text = " | ".join(contact_parts)
 
-    doc.build(final_story)
+    # Function to uppercase text for section headings enforcing uppercase per spec
+    def make_uppercase(text):
+        return text.upper()
+
+    # The main story building function for one run (to be re-built for fit)
+    def build_story():
+        story = []
+
+        # Header block
+        # 1. Full name centered, ALL CAPS, Helvetica-Bold 17pt, color #1a1a1a
+        story.append(Paragraph(full_name.upper(), styles["CVName"]))
+        story.append(Spacer(1, 3))
+
+        # 2. One centered contact line beneath
+        if contact_line_text.strip():
+            story.append(Paragraph(contact_line_text, styles["CVContact"]))
+
+        # 3. Thin horizontal rule (0.6pt) below contact line, 5pt below contact line
+        story.append(Spacer(1, 5))
+        story.append(HRLine(USABLE_WIDTH, 0.6, COLOR_RULE))
+        story.append(Spacer(1, 5))
+
+        # Section order and rendering
+
+        def add_section_heading(title):
+            heading_text = make_uppercase(title)
+            story.append(Spacer(1, 4))  # 4pt above heading
+            story.append(Paragraph(heading_text, styles["CVSectionHeading"]))
+            story.append(HRLine(USABLE_WIDTH, 1, COLOR_RULE))
+            story.append(Spacer(1, 3))  # 3pt below horizontal rule
+
+        # PROFILE
+        if profile_text.strip():
+            add_section_heading("Profile")
+            story.append(Paragraph(profile_text, styles["CVBody"]))
+
+        # TECHNICAL SKILLS
+        if technical_skills:
+            add_section_heading("Technical Skills")
+            # Each skill group on its own line: "<b>Label:</b> values"
+            for label, values in technical_skills.items():
+                line_html = f"<b>{label}</b> {values}"
+                story.append(Paragraph(line_html, styles["CVSkillLine"]))
+
+        # SOFT SKILLS
+        if soft_skills:
+            add_section_heading("Soft Skills")
+            # Single compact line or two if needed.
+            # Items separated by "  -  "
+            # Join items with "  -  "
+            soft_skills_line = " \u2022 ".join(soft_skills)  # Unicode bullet for separator
+            # Because Unicode bullets can be misread, use "  -  " per spec safer.
+            soft_skills_line = "  -  ".join(soft_skills)
+            # Use bullet style paragraph without actual bullets
+            # Break if too long automatically by ReportLab
+            story.append(Paragraph(soft_skills_line, styles["CVSoftSkills"]))
+
+        # PROFESSIONAL EXPERIENCE
+        if professional_experience:
+            add_section_heading("Professional Experience")
+            for role in professional_experience:
+                # Job and company on one line
+                job_comp_line = f"<b>{role['job_title']}</b>  |  <b>{role['company']}</b>"
+                story.append(Paragraph(job_comp_line, styles["CVJobTitle"]))
+                # Dates below with 1pt space
+                story.append(Paragraph(role["date_range"], styles["CVJobMeta"]))
+                # Bullets with 6pt gap between roles (we add after last bullet)
+                for bullet in role["bullets"]:
+                    # Use bulletText param with safe plain bullet character
+                    story.append(Paragraph(bullet, styles["CVBullet"], bulletText="•"))
+                story.append(Spacer(1, 6))
+
+        # PERSONAL PROJECTS
+        if personal_projects:
+            add_section_heading("Personal Projects")
+            for project in personal_projects:
+                # Heading line: "<b>Project Name</b> - Tech Stack" or just project name if no tech stack
+                if project.get("tech_stack","").strip():
+                    heading_line = f"<b>{project['name']}</b> - {project['tech_stack']}"
+                else:
+                    heading_line = f"<b>{project['name']}</b>"
+                story.append(Paragraph(heading_line, styles["CVProjectHeading"]))
+                # Bullets with 5pt gap between projects (add after last bullet)
+                for bullet in project["bullets"]:
+                    story.append(Paragraph(bullet, styles["CVBullet"], bulletText="•"))
+                story.append(Spacer(1, 5))
+
+        # EDUCATION
+        if education_entries:
+            add_section_heading("Education")
+            for entry in education_entries:
+                story.append(Paragraph(entry["degree"], styles["CVEducationDegree"]))
+                story.append(Paragraph(entry["institution"], styles["CVEducationSchool"]))
+                story.append(Paragraph(entry["date_range"], styles["CVEducationDate"]))
+                story.append(Spacer(1, 4))
+
+        return story
+
+    def story_height(story, doc):
+        """Calculate total height of story flowables on the page (for fitting check)"""
+        total_h = 0
+        for flowable in story:
+            w, h = flowable.wrap(doc.width, doc.height)
+            total_h += h
+        return total_h
+
+    # Generate document and try to fit on one page by adjusting font sizes and spacing
+    def try_fit_and_build():
+        # Adjust font sizes and spacings in decrements if needed until fits or minimum sizes
+        # Minimal limits:
+        min_body_font_size = 7.5
+        min_section_heading_font_size = 7.5
+        min_contact_font_size = 7.5
+        min_name_font_size = 14
+        min_bullet_leading = 9
+        current_body_font_size = base_body_font_size
+        current_body_leading = base_body_leading
+        current_section_heading_font_size = base_section_heading_font_size
+        current_contact_font_size = base_contact_font_size
+        current_name_font_size = base_name_font_size
+        current_bullet_leading = base_bullet_leading
+
+        # Maximum available height for content (page height - top margin - bottom margin)
+        max_height = PAGE_HEIGHT - 2 * MARGIN
+
+        # Update styles helper
+        def update_styles():
+            styles["CVName"].fontSize = current_name_font_size
+            styles["CVName"].leading = current_name_font_size * 1.1
+            styles["CVContact"].fontSize = current_contact_font_size
+            styles["CVContact"].leading = current_contact_font_size * 1.1
+            styles["CVSectionHeading"].fontSize = current_section_heading_font_size
+            styles["CVSectionHeading"].leading = current_section_heading_font_size * 1.1
+            styles["CVBody"].fontSize = current_body_font_size
+            styles["CVBody"].leading = current_body_leading
+            styles["CVSkillLine"].fontSize = current_body_font_size
+            styles["CVSkillLine"].leading = current_body_leading
+            styles["CVSkillLabel"].fontSize = current_body_font_size
+            styles["CVSkillLabel"].leading = current_body_leading
+            styles["CVSoftSkills"].fontSize = current_body_font_size
+            styles["CVSoftSkills"].leading = current_body_leading
+            styles["CVJobTitle"].fontSize = current_body_font_size
+            styles["CVJobTitle"].leading = current_body_leading
+            styles["CVBullet"].fontSize = current_body_font_size
+            styles["CVBullet"].leading = current_bullet_leading
+            styles["CVJobMeta"].fontSize = base_job_meta_font_size
+            styles["CVJobMeta"].leading = base_job_meta_font_size * 1.15
+            styles["CVProjectHeading"].fontSize = current_body_font_size
+            styles["CVProjectHeading"].leading = current_body_leading
+            styles["CVEducationDegree"].fontSize = current_body_font_size
+            styles["CVEducationDegree"].leading = current_body_leading
+            styles["CVEducationSchool"].fontSize = current_body_font_size
+            styles["CVEducationSchool"].leading = current_body_leading
+            styles["CVEducationDate"].fontSize = base_meta_font_size
+            styles["CVEducationDate"].leading = base_meta_font_size * 1.15
+
+        update_styles()
+
+        # Build a temporary doc to check size
+        from reportlab.platypus import BaseDocTemplate, Frame, PageTemplate
+
+        def dummy_page(canvas, doc):
+            pass
+
+        while True:
+            update_styles()
+            doc = BaseDocTemplate(
+                "dummy.pdf",
+                pagesize=A4,
+                leftMargin=MARGIN,
+                rightMargin=MARGIN,
+                topMargin=MARGIN,
+                bottomMargin=MARGIN,
+            )
+            frame = Frame(
+                MARGIN,
+                MARGIN,
+                PAGE_WIDTH - 2 * MARGIN,
+                PAGE_HEIGHT - 2 * MARGIN,
+                id="normal",
+            )
+            template = PageTemplate(id="test", frames=frame, onPage=dummy_page)
+            doc.addPageTemplates([template])
+
+            story = build_story()
+            try:
+                # try build to measure if fit
+                doc.build(story)
+            except Exception:
+                # ignore build errors in dummy build
+                pass
+            # We do a rough check by counting total height (wrap sum)
+            total_height = story_height(story, doc)
+            if total_height <= max_height:
+                break
+            # If font sizes can be reduced, reduce in order body font, heading font, contact font, name font, bullet leading
+            if current_body_font_size > min_body_font_size:
+                current_body_font_size -= 0.5
+                current_body_leading = max(current_body_font_size * 1.1, current_body_font_size + 2)
+                current_bullet_leading = max(current_bullet_leading - 1, min_bullet_leading)
+                continue
+            if current_section_heading_font_size > min_section_heading_font_size:
+                current_section_heading_font_size -= 0.5
+                continue
+            if current_contact_font_size > min_contact_font_size:
+                current_contact_font_size -= 0.5
+                continue
+            if current_name_font_size > min_name_font_size:
+                current_name_font_size -= 0.5
+                continue
+            # If cannot reduce more sizes, break anyway to avoid infinite loop
+            break
+
+        # Final build with adjusted styles on real output file
+        update_styles()
+        doc_final = SimpleDocTemplate(
+            output_file,
+            pagesize=A4,
+            leftMargin=MARGIN,
+            rightMargin=MARGIN,
+            topMargin=MARGIN,
+            bottomMargin=MARGIN,
+        )
+        story_final = build_story()
+        doc_final.build(story_final)
+
+    try_fit_and_build()
 
 
 if __name__ == "__main__":
-    create_cv()
+    create_cv_pdf()
