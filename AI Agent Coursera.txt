@@ -130,6 +130,8 @@ CrewAI focuses on multi-agent collaboration, task delegation, and autonomous pro
 
 
 -> core concepts
+
+
 	Framework for building multi-agent AI systems
 	Uses Agents, Tasks, and Crews
 	Agent → AI with role, goal, backstory
@@ -157,3 +159,32 @@ crew.py → agents + tasks + crew logic
 main.py → entry point to run project
 Run project using: crewai run
 Separates config, logic, and execution for clean architecture
+
+
+
+
+
+week 4 -> Langraph
+
+
+-> agent workflows are represented as graphs
+states -> represent the current snapshot of the application
+Nodes -> Nodes are the python functions that represent agent logic. they reciece the current state and do something and return an updated state.
+Edges-> are the python funtions that determine which Node to execute next based on the State. They can be conditional or fixed
+
+nodes do the work
+edges choose what to do next
+
+five steps to create a graph
+1=> define the state class
+2=> start the graph builder 
+3-> create node
+4 -> create edges
+6 => compile the graph
+
+
+there is the reducer function in the langraph
+
+super steps -> a super is the single iteration over the node. nodes that are parallel, that run parallel are the part of same super step.  nodes that run sequentially belong to seprate super step.
+
+

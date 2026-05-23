@@ -31,6 +31,10 @@ frontend_task:
     Write a gradio UI in a module app.py that demonstrates the given backend class in {module_name}.
     Assume there is only 1 user, and keep the UI very simple indeed - just a prototype or demo.
     Here are the requirements: {requirements}
+    The Gradio file must import successfully and use valid Gradio syntax only.
+    Do not use UI components as decorators. For example, never write @gr.State() or @gr.Markdown(...).
+    Instantiate components inside gr.Blocks() or use gr.Interface correctly.
+    Verify that every constructor argument, field name, and method call matches the backend module exactly.
   expected_output: >
     A gradio UI in module app.py that demonstrates the given backend class.
     The file should be ready so that it can be run as-is, in the same directory as the backend module, and it should import the backend class from {module_name}.
@@ -46,6 +50,7 @@ test_task:
     Write unit tests for the given backend module {module_name} and create a test_{module_name} in the same directory as the backend module.
     Before writing assertions, sanity-check that the module can be imported and that no dataclass definition
     violates Python's required-before-default field ordering rules.
+    Also sanity-check that app.py imports successfully and does not misuse Gradio components as decorators or call nonexistent backend APIs.
   expected_output: >
     A test_{module_name} module that tests the given backend module.
     IMPORTANT: Output ONLY the raw Python code without any markdown formatting, code block delimiters, or backticks.
