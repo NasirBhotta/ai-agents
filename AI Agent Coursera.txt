@@ -182,8 +182,30 @@ five steps to create a graph
 4 -> create edges
 6 => compile the graph
 
+Annotated
 
-there is the reducer function in the langraph
+Adds extra meaning to a type for LangGraph.
+Example:
+
+messages: Annotated[list, add_messages]
+
+→ “this is a list + use add_messages on it”
+
+LangGraph uses it to decide how state should behave.
+→ tells it how to handle updates automatically
+
+
+there is the reducer function in the langraph -> langgraph has nodes each node can have its own state so in order to keep the state persistent across each node a reducer is used
+add_messages (Reducer)
+
+Combines old + new values instead of replacing.
+Example:
+
+["Hi"] + ["How are you?"] → ["Hi", "How are you?"]
+Prevents data loss in state updates.
+→ keeps full chat history instead of overwriting it
+
+
 
 super steps -> a super is the single iteration over the node. nodes that are parallel, that run parallel are the part of same super step.  nodes that run sequentially belong to seprate super step.
 
