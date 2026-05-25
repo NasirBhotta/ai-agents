@@ -209,4 +209,11 @@ Prevents data loss in state updates.
 
 super steps -> a super is the single iteration over the node. nodes that are parallel, that run parallel are the part of same super step.  nodes that run sequentially belong to seprate super step.
 
+### LangGraph gives you tools to set the state back to a prior point in time, to branch off:
 
+```
+config = {"configurable": {"thread_id": "1", "checkpoint_id": ...}}
+graph.invoke(None, config=config)
+```
+
+And this allows you to build stable systems that can be recovered and rerun from any prior checkpoint.
