@@ -30,6 +30,7 @@ dependencies = [
     { name = "langchain" },
     { name = "langchain-community" },
     { name = "langchain-openai" },
+    { name = "langgraph-checkpoint-sqlite" },
     { name = "openai" },
     { name = "openai-agents" },
     { name = "pypdf" },
@@ -43,6 +44,7 @@ requires-dist = [
     { name = "langchain", specifier = ">=1.3.1" },
     { name = "langchain-community", specifier = ">=0.3.0" },
     { name = "langchain-openai", specifier = ">=1.2.2" },
+    { name = "langgraph-checkpoint-sqlite", specifier = ">=3.1.0" },
     { name = "openai" },
     { name = "openai-agents" },
     { name = "pypdf" },
@@ -1451,6 +1453,20 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/83/47/886af6f886f0bff2273164a45f008694e48a96ff3cd25ff0228f2aa9480e/langgraph_checkpoint-4.1.1.tar.gz", hash = "sha256:6c2bdb530c91f91d7d9c1bd100925d0fc4f498d418c17f3587d1526279482a25", size = 184020, upload-time = "2026-05-22T16:57:38.503Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/bd/b4/71425e3e38be92611300b9cc5e46a5bf98ab23f5ea8a75b73d02a2f1413c/langgraph_checkpoint-4.1.1-py3-none-any.whl", hash = "sha256:25d29144b082827218e7bc3f1e9b0566a4bb007895cd6cc26f66a8428739f56e", size = 56212, upload-time = "2026-05-22T16:57:37.203Z" },
+]
+
+[[package]]
+name = "langgraph-checkpoint-sqlite"
+version = "3.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "aiosqlite" },
+    { name = "langgraph-checkpoint" },
+    { name = "sqlite-vec" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e3/ea/83917c2369acf8a10a894d4247655fd063c07924ba5bc4e83c85d2eaeded/langgraph_checkpoint_sqlite-3.1.0.tar.gz", hash = "sha256:f926916ebc1b985d802cc9c820026036e84db9d910d62c97b57e4ba64f67d5ae", size = 147902, upload-time = "2026-05-12T03:34:52.503Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/97/07/b342811a16327900af2747c752ea19676172fcddf9b592cc384031076623/langgraph_checkpoint_sqlite-3.1.0-py3-none-any.whl", hash = "sha256:cc9b40df0076feae8a9ad42ae713621b148b00ac23adc09dc1dc66090a46e5ad", size = 38587, upload-time = "2026-05-12T03:34:51.231Z" },
 ]
 
 [[package]]
@@ -2988,6 +3004,18 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/bc/fe/67da6dc61fc885a935464091feaa7494f36618422d2ffbe9d16efc749fd0/sqlalchemy-2.1.0b2-cp313-cp313t-win_amd64.whl", hash = "sha256:203b4687d415c9ab9eae6b97cc7d74d7706e615ca8d331d3c600332d742a87ac", size = 2338047, upload-time = "2026-04-16T21:05:44.705Z" },
     { url = "https://files.pythonhosted.org/packages/64/39/2801d4e6ea32437e2ba44e659534d217414964d53430ab4050575a41fe7a/sqlalchemy-2.1.0b2-cp313-cp313t-win_arm64.whl", hash = "sha256:4c0224df223d081d6bdb6c5ae44bfa1cbe9b1d34c336630eff99391e3176ae2b", size = 2268451, upload-time = "2026-04-16T20:59:29.952Z" },
     { url = "https://files.pythonhosted.org/packages/84/58/56810f8c4fe3fb14665f495852bee9452583b7b0c61cb43c062e9dfa7a97/sqlalchemy-2.1.0b2-py3-none-any.whl", hash = "sha256:98605269d1b7e1d5d3ef680995e4714fc0c5aaa43615684d316079b6dbed826c", size = 1985929, upload-time = "2026-04-16T20:56:46.059Z" },
+]
+
+[[package]]
+name = "sqlite-vec"
+version = "0.1.10a4"
+source = { registry = "https://pypi.org/simple" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f0/5b/f993763030dc4bad04b8fe437c34c5595709e17727cd4a3c4e3a766a1497/sqlite_vec-0.1.10a4-py3-none-macosx_10_6_x86_64.whl", hash = "sha256:d5008e4ed863ed30a52489b8989a1df3dd9b7c8fe3b4fc526ccdb83c3c50661f", size = 179091, upload-time = "2026-05-18T06:54:31.902Z" },
+    { url = "https://files.pythonhosted.org/packages/f2/52/ca3edf018d67f7736ad7520770b66031063b54f8a0b1bc3622ead3a9f646/sqlite_vec-0.1.10a4-py3-none-macosx_11_0_arm64.whl", hash = "sha256:8d1b8cffdd8fe86d48efc3e447569da3874e4cf7d61ad2ddf5a8ece102294b0e", size = 197402, upload-time = "2026-05-18T06:54:33.456Z" },
+    { url = "https://files.pythonhosted.org/packages/21/b4/571bc81c408521eb2390dcfee987ebeda8a63f3cf765626381a6f0191274/sqlite_vec-0.1.10a4-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:60f8fada13f6e48c2ea14709ba9f30429a13d3a291616671b62ca48bb36aebcb", size = 190124, upload-time = "2026-05-18T06:54:34.925Z" },
+    { url = "https://files.pythonhosted.org/packages/79/27/57ccbf098b2bb4ab4f0ee138cf1e38235f84636f74e0a52464b9a8aa1c0e/sqlite_vec-0.1.10a4-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.manylinux1_x86_64.whl", hash = "sha256:f1897fa54780aaee4ce216091a51193f6383060099325360163550836f803eff", size = 213876, upload-time = "2026-05-18T06:54:35.949Z" },
+    { url = "https://files.pythonhosted.org/packages/73/26/9f64179d13d2032edcf7b6ab8539d600db3fa08a359a0859c0daa2bf2b86/sqlite_vec-0.1.10a4-py3-none-win_amd64.whl", hash = "sha256:21473f81e58536f2594e4196a03c19a553476c834d97be4d03a2bb0a7d51e1c3", size = 310292, upload-time = "2026-05-18T06:54:36.876Z" },
 ]
 
 [[package]]
