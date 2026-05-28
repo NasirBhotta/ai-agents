@@ -9,7 +9,7 @@ from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from typing import List, Any, Optional, Dict
 from pydantic import BaseModel, Field
-from sidekick_tools import playwright_tools, other_tools
+from sidekick_tools import playwright_tool, other_tools
 import uuid
 import asyncio
 from datetime import datetime
@@ -18,10 +18,11 @@ import os
 load_dotenv(override=True)
 
 NVIDIA_NIM_API_KEY = os.getenv("NVIDIA_NIM_API_KEY")
+os.environ["LANGSMITH_TRACING"] = "false"
 
 
 class State(TypedDict):
-    messages: Annotated [list[Any], add_messages]
+    messages: Annotated[list[Any], add_messages]
     success_criteria: str
     feedback_on_work: Optional[str]
     success_criteria_met: bool
@@ -30,9 +31,12 @@ class State(TypedDict):
 
 class EvaluatorOutput(BaseModel):
     feedback: str = Field(description="Feedback on the assistant's response")
-    success_criteria_met: bool = Field(description="Whether the success criteria has been met")
-    user_input_needed: bool = Field(description="True if more input is needed from the user, or clarifications, or the assistant is stuck")
-
+    success_criteria_met: bool = Field(
+        description="Whether the success criteria has been met"
+    )
+    user_input_needed: bool = Field(
+        description="True if more input is needed from the user, or clarifications, or the assistant is stuck"
+    )
 
 
 class Sidekick:
@@ -47,25 +51,26 @@ class Sidekick:
         self.browser = None
         self.playwright = None
 
-async def setup(self):
-    self.tools, self.browser, self.playwright = await playwright_tools()
-    self.tools += await other_tools()
-    worker_llm = ChatOpenAI(
+    async def setup(self):
+        self.tools, self.browser, self.playwright = await playwright_tool()
+        self.tools += await other_tools()
+        worker_llm = ChatOpenAI(
             model="nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
             base_url="https://integrate.api.nvidia.com/v1",
-            api_key=NVIDIA_NIM_API_KEY
-    )
-    self.worker_llm_with_tools = worker_llm.bind_tools(self.tools)
-    evaluator_llm = ChatOpenAI(
+            api_key=NVIDIA_NIM_API_KEY,
+        )
+        self.worker_llm_with_tools = worker_llm.bind_tools(self.tools)
+        evaluator_llm = ChatOpenAI(
             model="nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
             base_url="https://integrate.api.nvidia.com/v1",
-            api_key=NVIDIA_NIM_API_KEY
-    )
-    self.evaluator_llm_with_output = evaluator_llm.with_structured_output(EvaluatorOutput)
-    await self.build_graph()
+            api_key=NVIDIA_NIM_API_KEY,
+        )
+        self.evaluator_llm_with_output = evaluator_llm.with_structured_output(
+            EvaluatorOutput
+        )
+        await self.build_graph()
 
-
-def worker(self, state:State) -> Dict[str, Any]:
+    def worker(self, state: State) -> Dict[str, Any]:
         system_message = f"""You are a helpful assistant that can use tools to complete tasks.
     You keep working on a task until either you have a question or clarification for the user, or the success criteria is met.
     You have many tools to help you, including tools to browse the internet, navigating and retrieving web pages.
@@ -89,44 +94,39 @@ def worker(self, state:State) -> Dict[str, Any]:
     {state["feedback_on_work"]}
     With this feedback, please continue the assignment, ensuring that you meet the success criteria or have a question for the user."""
 
-
         found_system_message = False
         messages = state["messages"]
         for message in messages:
-             if isinstance(message, SystemMessage):
+            if isinstance(message, SystemMessage):
                 if message.content == system_message:
                     found_system_message = True
                     break
         if not found_system_message:
             messages = [SystemMessage(content=system_message)] + messages
 
-        
         response = self.worker_llm_with_tools.invoke(messages)
 
+        return {"messages": [response]}
 
-        return {
-            "messages" : [response]
-        }
+    def worker_router(self, state: State) -> str:
+        last_message = state["messages"][-1]
 
-def worker_router(self, state: State) -> str:
-    last_message = state["messages"][-1]
+        if hasattr(last_message, "tool_calls") and last_message.tool_calls:
+            return "tools"
+        else:
+            return "evaluator"
 
-    if hasattr(last_message, "tool_calls") and last_message.tool_calls:
-        return "tools"
-    else:
-        return "evaluator"
-    
-def format_conversation(self, messages: List[Any]) -> str:
-    conversation = "conversation history:\n"
-    for message in messages:
-        if isinstance(message, HumanMessage):
-            conversation += f"user: {message.content}\n"
-        elif isinstance(message, AIMessage):
-            text = message.content or "[Tools use]"
-            conversation += f"Assistant: {text}\n"
-    return conversation
+    def format_conversation(self, messages: List[Any]) -> str:
+        conversation = "conversation history:\n"
+        for message in messages:
+            if isinstance(message, HumanMessage):
+                conversation += f"user: {message.content}\n"
+            elif isinstance(message, AIMessage):
+                text = message.content or "[Tools use]"
+                conversation += f"Assistant: {text}\n"
+        return conversation
 
-def evaluator(self, state: State) -> State:
+    def evaluator(self, state: State) -> State:
         last_response = state["messages"][-1].content
 
         system_message = """You are an evaluator that determines if a task has been completed successfully by an Assistant.
@@ -152,7 +152,9 @@ def evaluator(self, state: State) -> State:
 
     """
         if state["feedback_on_work"]:
-            user_message += f"Also, note that in a prior attempt from the Assistant, you provided this feedback: {state['feedback_on_work']}\n"
+            user_message += (
+                f"Also, note that in a prior attempt from the Assistant, you provided this feedback: {state['feedback_on_work']}\n"
+            )
             user_message += "If you're seeing the Assistant repeating the same mistakes, then consider responding that user input is required."
 
         evaluator_messages = [
@@ -174,22 +176,19 @@ def evaluator(self, state: State) -> State:
         }
         return new_state
 
-def route_based_on_evaluation(self, state: State) -> str:
+    def route_based_on_evaluation(self, state: State) -> str:
         if state["success_criteria_met"] or state["user_input_needed"]:
             return "END"
         else:
             return "worker"
 
-async def build_graph(self):
-        # Set up Graph Builder with State
+    async def build_graph(self):
         graph_builder = StateGraph(State)
 
-        # Add nodes
         graph_builder.add_node("worker", self.worker)
         graph_builder.add_node("tools", ToolNode(tools=self.tools))
         graph_builder.add_node("evaluator", self.evaluator)
 
-        # Add edges
         graph_builder.add_conditional_edges(
             "worker", self.worker_router, {"tools": "tools", "evaluator": "evaluator"}
         )
@@ -199,14 +198,13 @@ async def build_graph(self):
         )
         graph_builder.add_edge(START, "worker")
 
-        # Compile the graph
         self.graph = graph_builder.compile(checkpointer=self.memory)
 
-async def run_superstep(self, message, success_criteria, history):
+    async def run_superstep(self, message, success_criteria, history):
         config = {"configurable": {"thread_id": self.sidekick_id}}
 
         state = {
-            "messages": message,
+            "messages": [HumanMessage(content=message)],
             "success_criteria": success_criteria or "The answer should be clear and accurate",
             "feedback_on_work": None,
             "success_criteria_met": False,
@@ -218,7 +216,7 @@ async def run_superstep(self, message, success_criteria, history):
         feedback = {"role": "assistant", "content": result["messages"][-1].content}
         return history + [user, reply, feedback]
 
-def cleanup(self):
+    def cleanup(self):
         if self.browser:
             try:
                 loop = asyncio.get_running_loop()
@@ -226,7 +224,6 @@ def cleanup(self):
                 if self.playwright:
                     loop.create_task(self.playwright.stop())
             except RuntimeError:
-                # If no loop is running, do a direct run
                 asyncio.run(self.browser.close())
                 if self.playwright:
                     asyncio.run(self.playwright.stop())
