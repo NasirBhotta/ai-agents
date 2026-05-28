@@ -14,6 +14,9 @@ from pathlib import Path
 import re
 import json
 from pypdf import PdfReader
+from datetime import datetime
+
+
 PYPDF_AVAILABLE = True
 
 
@@ -40,14 +43,187 @@ def get_file_tool():
 
 
  
-SERPER_API_KEY = os.getenv("SERPER_API_KEY") or os.getenv("SERPERDEV_API_KEY")
+# SERPER_API_KEY = os.getenv("SERPER_API_KEY") or os.getenv("SERPERDEV_API_KEY")
  
 HOCHSCHULKOMPASS_URL = "https://www.hochschulkompass.de/en/study-in-germany/study-search/advanced-search.html"
 DAAD_BASE = "https://www2.daad.de/deutschland/studienangebote/international-programmes/en/result/"
+SANDBOX_DIR = Path("sandbox")
+
+PROFILE_PATH = SANDBOX_DIR / "student_profile.json"
+SERPER_API_KEY = os.getenv("SERPER_API_KEY") or os.getenv("SERPERDEV_API_KEY")
  
+ 
+# ─────────────────────────────────────────────────────────────────────────────
+#  PROFILE SCHEMA — mirrors the future Supabase row exactly
+#  When you integrate Supabase, swap _save_profile() with a supabase.upsert()
+# ─────────────────────────────────────────────────────────────────────────────
+ 
+def _empty_profile() -> dict:
+    """Returns a blank profile matching the Supabase schema."""
+    return {
+        # ── Identity (Supabase will auto-generate id/timestamps) ──
+        "id": "local-session-001",
+        "created_at": datetime.now().isoformat(),
+        "updated_at": datetime.now().isoformat(),
+        "user_id": None,                        # populated when auth is added
+ 
+        # ── Core profile fields ──
+        "degree_level": None,                   # "Masters" | "Bachelors"
+        "fields": [],                           # ["AI", "Cybersecurity", "Data Science"]
+        "language_pref": None,                  # "English" | "German" | "Both"
+        "budget": None,                         # "zero-fee" | "flexible"
+        "cgpa": None,                           # "3.23/4.0" | "78%"
+        "aps_certificate": None,                # true | false
+ 
+        # ── Document status ──
+        "documents": {
+            "matric": False,
+            "fsc": False,
+            "bachelors_degree": False,
+            "bachelors_transcripts": False,
+            "cv": False,
+            "ielts_certificate": False,
+            "ielts_score": None,                # "6.5" | null
+            "work_experience": False,
+        },
+ 
+        # ── Extracted doc data (populated by read_and_extract_pdf) ──
+        "extracted_docs": {},
+ 
+        # ── University search results (populated by search_universities) ──
+        "university_results": None,
+ 
+        # ── Full chat history (managed by agent executor separately) ──
+        "chat_history": [],
+    }
+ 
+ 
+def _load_profile() -> dict:
+    """Load profile from sandbox/student_profile.json, or return empty profile."""
+    SANDBOX_DIR.mkdir(exist_ok=True)
+    if PROFILE_PATH.exists():
+        try:
+            with open(PROFILE_PATH, "r") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return _empty_profile()
+ 
+ 
+def _save_profile(profile: dict) -> None:
+    """Save profile to sandbox/student_profile.json."""
+    SANDBOX_DIR.mkdir(exist_ok=True)
+    profile["updated_at"] = datetime.now().isoformat()
+    with open(PROFILE_PATH, "w") as f:
+        json.dump(profile, f, indent=2)
+ 
+ 
+# ─────────────────────────────────────────────────────────────────────────────
+#  1. UPDATE STUDENT PROFILE
+# ─────────────────────────────────────────────────────────────────────────────
+ 
+def update_student_profile(updates_json: str) -> str:
+    """
+    Merge new data into the student profile and save it.
+    Call this after EVERY interview answer to keep the profile up to date.
+ 
+    Args:
+        updates_json: JSON string of fields to update. Only include changed fields.
+ 
+        Top-level field examples:
+          {"degree_level": "Masters"}
+          {"fields": ["AI", "Cybersecurity"]}
+          {"cgpa": "3.23/4.0", "aps_certificate": true}
+          {"language_pref": "English", "budget": "zero-fee"}
+ 
+        To update nested documents object, use "documents" key:
+          {"documents": {"matric": true, "ielts_certificate": true, "ielts_score": "6.5"}}
+ 
+        To update extracted_docs, use "extracted_docs" key:
+          {"extracted_docs": {"ielts_certificate": {"overall_band": "6.5", ...}}}
+ 
+    Returns:
+        Confirmation string with the updated profile summary.
+    """
+    try:
+        updates = json.loads(updates_json)
+    except json.JSONDecodeError as e:
+        return f"❌ Invalid JSON: {e}"
+ 
+    profile = _load_profile()
+ 
+    # Deep merge for nested dicts (documents, extracted_docs)
+    for key, value in updates.items():
+        if key in ("documents", "extracted_docs") and isinstance(value, dict):
+            profile[key] = {**profile.get(key, {}), **value}
+        else:
+            profile[key] = value
+ 
+    _save_profile(profile)
+ 
+    # Return a clean confirmation
+    summary_fields = {
+        "degree_level": profile.get("degree_level"),
+        "fields": profile.get("fields"),
+        "language_pref": profile.get("language_pref"),
+        "budget": profile.get("budget"),
+        "cgpa": profile.get("cgpa"),
+        "aps_certificate": profile.get("aps_certificate"),
+        "documents": profile.get("documents"),
+    }
+    return f"✅ Profile updated and saved.\nCurrent profile:\n{json.dumps(summary_fields, indent=2)}"
+ 
+ 
+def get_update_profile_tool() -> Tool:
+    return Tool(
+        name="update_student_profile",
+        func=update_student_profile,
+        description=(
+            "Save or update the student's profile data to sandbox/student_profile.json. "
+            "Call this after EVERY interview answer as soon as a field is collected. "
+            "Input: a JSON string of only the fields that changed. "
+            "For nested fields use 'documents' or 'extracted_docs' as the key. "
+            "Examples: "
+            "'{\"degree_level\": \"Masters\"}' "
+            "'{\"fields\": [\"AI\", \"Cybersecurity\"]}' "
+            "'{\"documents\": {\"matric\": true}}' "
+            "'{\"cgpa\": \"3.23/4.0\", \"aps_certificate\": true}'"
+        ),
+    )
+ 
+ 
+# ─────────────────────────────────────────────────────────────────────────────
+#  2. GET STUDENT PROFILE
+# ─────────────────────────────────────────────────────────────────────────────
+ 
+def get_student_profile(_: str = "") -> str:
+    """
+    Read the current student profile from sandbox/student_profile.json.
+    Use this when you need to recall what has been collected so far,
+    or when building the university search input.
+ 
+    Returns:
+        The full profile as a formatted JSON string.
+    """
+    profile = _load_profile()
+    return json.dumps(profile, indent=2)
+ 
+ 
+def get_read_profile_tool() -> Tool:
+    return Tool(
+        name="get_student_profile",
+        func=get_student_profile,
+        description=(
+            "Read the current student profile from sandbox/student_profile.json. "
+            "Use this to recall collected data at any point, or before calling search_universities "
+            "to build the input JSON from saved profile data. "
+            "Input: empty string (no input needed)."
+        ),
+    )
+ 
+
  
 def _serper_search(query: str, num: int = 10) -> list[dict]:
-    """Raw Serper API call, returns list of organic results."""
     if not SERPER_API_KEY:
         raise EnvironmentError("SERPER_API_KEY not set in environment.")
     resp = requests.post(
@@ -57,16 +233,10 @@ def _serper_search(query: str, num: int = 10) -> list[dict]:
         timeout=15,
     )
     resp.raise_for_status()
-    data = resp.json()
-    return data.get("organic", [])
-
-
+    return resp.json().get("organic", [])
+ 
+ 
 def _build_search_queries(profile: dict) -> list[str]:
-    """
-    Build targeted search queries from the student profile dict.
-    Profile keys expected:
-        degree_level, fields, language_pref, budget, cgpa, aps
-    """
     degree = profile.get("degree_level", "Masters")
     fields = profile.get("fields", [profile.get("field_of_study", "Computer Science")])
     if isinstance(fields, str):
@@ -75,36 +245,34 @@ def _build_search_queries(profile: dict) -> list[str]:
     budget = profile.get("budget", "zero-fee")
  
     queries = []
-    for field in fields[:3]:  # cap at 3 fields
+    for field in fields[:3]:
         base = f"German public university {degree} {field}"
         if "english" in lang.lower():
             base += " English taught"
         if "zero" in str(budget).lower():
             base += " no tuition fee"
         queries.append(base + " site:daad.de OR site:hochschulkompass.de OR site:uni-assist.de")
-        queries.append(f"{degree} {field} Germany admission requirements Pakistani students IELTS 2024 2025")
- 
+        queries.append(f"{degree} {field} Germany admission requirements Pakistani students IELTS 2025 2026")
     return queries
  
  
 def search_universities_for_profile(profile_json: str) -> str:
     """
-    Main tool function. Accepts a JSON string of the student profile,
-    runs multiple targeted searches, and returns a structured markdown report.
+    Search for German universities matching the student profile.
+    Saves results into the profile JSON under 'university_results'.
  
     Args:
-        profile_json: JSON string with keys:
-            degree_level, fields (list), language_pref, budget, cgpa, aps,
-            ielts_score (optional)
- 
-    Returns:
-        Markdown-formatted university recommendations with links.
+        profile_json: JSON string with keys from the student profile,
+                      OR pass empty string "" to auto-load from saved profile.
     """
-    try:
-        profile = json.loads(profile_json)
-    except json.JSONDecodeError:
-        # Fallback: treat as plain text description
-        profile = {"field_of_study": profile_json, "degree_level": "Masters"}
+    # Auto-load from saved profile if no input given
+    if not profile_json.strip() or profile_json.strip() == '""':
+        profile = _load_profile()
+    else:
+        try:
+            profile = json.loads(profile_json)
+        except json.JSONDecodeError:
+            profile = _load_profile()
  
     queries = _build_search_queries(profile)
     all_results: list[dict] = []
@@ -116,7 +284,7 @@ def search_universities_for_profile(profile_json: str) -> str:
         except Exception as e:
             all_results.append({"title": f"Search error: {e}", "link": "", "snippet": ""})
  
-    # Deduplicate by URL
+    # Deduplicate
     seen_links = set()
     unique_results = []
     for r in all_results:
@@ -127,14 +295,32 @@ def search_universities_for_profile(profile_json: str) -> str:
  
     # Prioritise official sources
     priority_domains = ["daad.de", "hochschulkompass.de", "uni-assist.de", ".uni-", "tu-", "fh-"]
-    def priority_score(r):
-        link = r.get("link", "").lower()
-        return sum(1 for d in priority_domains if d in link)
- 
-    unique_results.sort(key=priority_score, reverse=True)
+    unique_results.sort(
+        key=lambda r: sum(1 for d in priority_domains if d in r.get("link", "").lower()),
+        reverse=True,
+    )
     top_results = unique_results[:15]
  
-    # Format output
+    # Save results into profile JSON
+    saved_results = [
+        {"title": r.get("title"), "link": r.get("link"), "snippet": r.get("snippet")}
+        for r in top_results
+    ]
+    profile_stored = _load_profile()
+    profile_stored["university_results"] = {
+        "searched_at": datetime.now().isoformat(),
+        "query_profile": {
+            "degree_level": profile.get("degree_level"),
+            "fields": profile.get("fields"),
+            "language_pref": profile.get("language_pref"),
+            "budget": profile.get("budget"),
+            "cgpa": profile.get("cgpa"),
+        },
+        "results": saved_results,
+    }
+    _save_profile(profile_stored)
+ 
+    # Format markdown output for the user
     degree = profile.get("degree_level", "Masters")
     fields = profile.get("fields", [profile.get("field_of_study", "the requested field")])
     if isinstance(fields, str):
@@ -143,14 +329,13 @@ def search_universities_for_profile(profile_json: str) -> str:
     lines = [
         f"## 🎓 University Matches — {degree} in {' / '.join(fields)}",
         "",
-        f"*Based on: {profile.get('language_pref', 'English')}-taught | "
+        f"*{profile.get('language_pref', 'English')}-taught | "
         f"Budget: {profile.get('budget', 'flexible')} | "
         f"CGPA: {profile.get('cgpa', 'N/A')}*",
         "",
         "---",
         "",
     ]
- 
     for i, r in enumerate(top_results, 1):
         title = r.get("title", "Untitled")
         link = r.get("link", "#")
@@ -162,14 +347,14 @@ def search_universities_for_profile(profile_json: str) -> str:
  
     lines += [
         "---",
-        "",
         "**Next steps:**",
-        "1. Check APS certificate status before applying → https://aps-southasia.de",
-        "2. Apply via uni-assist for most programs → https://www.uni-assist.de",
-        "3. Check DoSV for Medicine/Pharmacy/Psychology → https://hochschulstart.de",
-        "4. Explore DAAD scholarships → https://www.daad.de/en/study-and-research-in-germany/scholarships/",
+        "1. APS certificate → https://aps-southasia.de",
+        "2. Apply via uni-assist → https://www.uni-assist.de",
+        "3. DoSV (Medicine/Pharmacy/Psychology) → https://hochschulstart.de",
+        "4. DAAD scholarships → https://www.daad.de/en/study-and-research-in-germany/scholarships/",
+        "",
+        "*Results saved to your profile.*",
     ]
- 
     return "\n".join(lines)
  
  
@@ -178,84 +363,188 @@ def get_university_search_tool() -> Tool:
         name="search_universities",
         func=search_universities_for_profile,
         description=(
-            "Search for German universities matching a student's profile. "
+            "Search for German universities matching the student profile. "
             "Call this IMMEDIATELY after the student confirms their profile summary is correct. "
-            "Input must be a JSON string with keys: degree_level, fields (list of strings), "
-            "language_pref, budget, cgpa, aps, ielts_score. "
-            "Example: '{\"degree_level\": \"Masters\", \"fields\": [\"AI\", \"Cybersecurity\"], "
-            "\"language_pref\": \"English\", \"budget\": \"zero-fee\", \"cgpa\": \"3.2/4.0\", "
-            "\"aps\": true, \"ielts_score\": \"6.5\"}'"
+            "Pass empty string to auto-load from saved profile, or pass a JSON string with keys: "
+            "degree_level, fields (list), language_pref, budget, cgpa, aps_certificate, ielts_score. "
+            "Results are automatically saved into sandbox/student_profile.json under 'university_results'."
         ),
     )
-
-SANDBOX_DIR = Path("sandbox")
  
  
-def read_pdf_from_sandbox(filename: str) -> str:
+# ─────────────────────────────────────────────────────────────────────────────
+#  4. READ AND EXTRACT PDF
+# ─────────────────────────────────────────────────────────────────────────────
+ 
+# Field extraction prompts per document type — the LLM uses these to know what to pull out
+PDF_EXTRACTION_SCHEMAS = {
+    "ielts": {
+        "candidate_name": "string",
+        "overall_band": "string e.g. '6.5'",
+        "listening": "string",
+        "reading": "string",
+        "writing": "string",
+        "speaking": "string",
+        "issue_date": "string YYYY-MM-DD",
+        "expiry_date": "string YYYY-MM-DD",
+        "test_centre": "string",
+    },
+    "transcript": {
+        "institution": "string",
+        "degree": "string",
+        "cgpa": "string e.g. '3.23/4.0'",
+        "graduation_year": "string",
+        "student_name": "string",
+    },
+    "degree_certificate": {
+        "institution": "string",
+        "degree_title": "string",
+        "student_name": "string",
+        "award_date": "string YYYY-MM-DD",
+        "result": "string e.g. 'First Class'",
+    },
+    "matric": {
+        "institution": "string",
+        "student_name": "string",
+        "year": "string",
+        "total_marks": "string",
+        "obtained_marks": "string",
+        "percentage": "string",
+        "board": "string e.g. 'BISE Lahore'",
+    },
+    "cv": {
+        "candidate_name": "string",
+        "email": "string",
+        "education": "list of degree entries",
+        "work_experience": "list of job entries with company, role, duration",
+        "skills": "list",
+    },
+    "default": {
+        "document_type": "string — best guess of what this document is",
+        "key_information": "string — most important information found",
+        "dates": "list of any dates found",
+        "names": "list of any names found",
+        "numbers": "list of any important numbers or scores",
+    },
+}
+ 
+ 
+def _detect_doc_type(filename: str, text_preview: str) -> str:
+    """Guess document type from filename and first 500 chars of text."""
+    combined = (filename + " " + text_preview).lower()
+    if any(k in combined for k in ["ielts", "british council", "idp", "band score"]):
+        return "ielts"
+    if any(k in combined for k in ["transcript", "grades", "semester", "cgpa", "gpa"]):
+        return "transcript"
+    if any(k in combined for k in ["degree", "bachelor", "master", "awarded", "conferred"]):
+        return "degree_certificate"
+    if any(k in combined for k in ["matric", "secondary", "ssc", "bise", "board"]):
+        return "matric"
+    if any(k in combined for k in ["cv", "resume", "curriculum vitae", "experience", "skills"]):
+        return "cv"
+    return "default"
+ 
+ 
+def read_and_extract_pdf(input_json: str) -> str:
     """
-    Reads a PDF from the sandbox/ directory and returns extracted text.
-    Useful when a student says their document is saved locally and provides a filename.
+    Read a PDF from sandbox/, extract structured fields, and save them
+    into sandbox/student_profile.json under 'extracted_docs'.
  
     Args:
-        filename: Just the filename (e.g. "transcript.pdf") or relative path
-                  within sandbox/ (e.g. "docs/ielts.pdf")
+        input_json: JSON string with:
+          - "filename": required — e.g. "transcript.pdf"
+          - "doc_key":  optional — key to store under in extracted_docs
+                        e.g. "bachelors_transcript", "ielts_certificate"
+                        If omitted, auto-detected from filename.
+ 
+        Example: '{"filename": "ielts.pdf", "doc_key": "ielts_certificate"}'
  
     Returns:
-        Extracted plain text from the PDF, or an error message.
+        Extracted structured data as JSON string + confirmation it was saved.
     """
     if not PYPDF_AVAILABLE:
         return (
-            "❌ PDF reading is not available. Please install pypdf:\n"
-            "  pip install pypdf\n"
-            "Then restart the agent."
+            "❌ PDF reading unavailable. Install with: pip install pypdf"
         )
  
-    # Sanitise path — no traversal outside sandbox
-    safe_name = Path(filename).name  # strips any directory components
-    target = SANDBOX_DIR / safe_name
+    # Parse input
+    try:
+        inp = json.loads(input_json)
+        filename = inp.get("filename", input_json)  # fallback: treat whole string as filename
+        doc_key = inp.get("doc_key", None)
+    except (json.JSONDecodeError, AttributeError):
+        filename = input_json.strip().strip('"')
+        doc_key = None
  
+    # Locate file safely within sandbox
+    safe_name = Path(filename).name
+    target = SANDBOX_DIR / safe_name
     if not target.exists():
-        # Try with the full relative path but still confined to sandbox
         target_alt = (SANDBOX_DIR / filename).resolve()
         sandbox_resolved = SANDBOX_DIR.resolve()
         if str(target_alt).startswith(str(sandbox_resolved)) and target_alt.exists():
             target = target_alt
         else:
             available = [f.name for f in SANDBOX_DIR.glob("**/*.pdf")] if SANDBOX_DIR.exists() else []
-            hint = f"\nAvailable PDFs in sandbox: {available}" if available else "\nNo PDFs found in sandbox/ folder."
-            return f"❌ File not found: sandbox/{filename}{hint}"
+            return f"❌ File not found: sandbox/{filename}. Available PDFs: {available}"
  
+    # Extract text
     try:
         reader = PdfReader(str(target))
         pages_text = []
         for i, page in enumerate(reader.pages):
             text = page.extract_text() or ""
             if text.strip():
-                pages_text.append(f"[Page {i+1}]\n{text.strip()}")
- 
-        if not pages_text:
-            return f"⚠️ PDF '{filename}' was found but no text could be extracted (may be a scanned image). Try uploading a text-based PDF."
- 
+                pages_text.append(text.strip())
         full_text = "\n\n".join(pages_text)
-        # Cap at ~4000 chars to avoid flooding context
-        if len(full_text) > 4000:
-            full_text = full_text[:4000] + f"\n\n... [truncated — {len(reader.pages)} pages total]"
- 
-        return f"📄 Contents of '{filename}':\n\n{full_text}"
- 
     except Exception as e:
-        return f"❌ Error reading PDF '{filename}': {e}"
-
-
+        return f"❌ Error reading PDF: {e}"
+ 
+    if not full_text.strip():
+        return f"⚠️ No text could be extracted from '{filename}' — may be a scanned image PDF."
+ 
+    # Detect document type
+    doc_type = _detect_doc_type(filename, full_text[:500])
+    schema = PDF_EXTRACTION_SCHEMAS.get(doc_type, PDF_EXTRACTION_SCHEMAS["default"])
+ 
+    # Auto-set doc_key if not provided
+    if not doc_key:
+        doc_key = doc_type if doc_type != "default" else Path(filename).stem
+ 
+    # Build structured extraction result
+    # The agent LLM will naturally extract these fields from the text
+    # because we return the text + the schema it should fill — the agent
+    # does the extraction as part of its reasoning before calling update_student_profile
+    extraction_prompt_hint = (
+        f"\n\n📋 DOCUMENT TYPE DETECTED: {doc_type.upper()}\n"
+        f"Please extract the following fields from the text above and call "
+        f"update_student_profile with:\n"
+        f'{{"extracted_docs": {{"{doc_key}": {json.dumps(schema, indent=2)}}}}}\n'
+        f"Fill in the actual values from the document. Use null for any field not found."
+    )
+ 
+    # Cap text to avoid flooding context
+    display_text = full_text[:3000] + (f"\n...[truncated]" if len(full_text) > 3000 else "")
+ 
+    return (
+        f"📄 Contents of '{filename}':\n\n"
+        f"{display_text}"
+        f"{extraction_prompt_hint}"
+    )
+ 
+ 
 def get_pdf_reader_tool() -> Tool:
     return Tool(
-        name="read_pdf_from_sandbox",
-        func=read_pdf_from_sandbox,
+        name="read_and_extract_pdf",
+        func=read_and_extract_pdf,
         description=(
-            "Read a PDF document from the local sandbox/ folder. "
-            "Use this when a student says they have a document saved locally and provides a filename. "
-            "Input: just the filename, e.g. 'transcript.pdf' or 'docs/ielts_certificate.pdf'. "
-            "Returns the extracted text content of the document."
+            "Read a PDF from sandbox/ folder, extract structured fields, and save them "
+            "into the student profile JSON. Use when a student mentions a document filename. "
+            "Input: JSON string with 'filename' and optional 'doc_key'. "
+            "Examples: "
+            "'{\"filename\": \"ielts.pdf\", \"doc_key\": \"ielts_certificate\"}' "
+            "'{\"filename\": \"transcript.pdf\", \"doc_key\": \"bachelors_transcript\"}' "
+            "After this tool returns, call update_student_profile to save the extracted fields."
         ),
     )
 
