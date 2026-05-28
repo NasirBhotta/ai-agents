@@ -576,6 +576,8 @@ def get_edu_extra_tools() -> list[Tool]:
         all_tools = existing_tools + extra
     """
     tools = [
+        get_update_profile_tool(),
+        get_read_profile_tool(),
         get_university_search_tool(),
         get_pdf_reader_tool(),
     ]
