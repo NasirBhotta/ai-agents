@@ -9,6 +9,7 @@ from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
 from edu_agent_tools import playwright_tool, other_tools
+from edu_agent_tools import get_edu_extra_tools
 from edu_agent_prompts import get_system_prompt
 import uuid
 import asyncio
@@ -67,21 +68,41 @@ class EduAgent:
         self.browser = None
         self.playwright = None
 
+    def get_greeting(self) -> str:
+        """Return the opening message shown when a session starts or resets."""
+        if self.interview:
+            return (
+                "Hello! I'm EduAgent. I'll help you build your German university application profile. "
+                "To start, are you applying for a Bachelor's or a Master's program?"
+            )
+        return (
+            "Hello! I'm EduAgent. Ask me anything about German university applications, "
+            "APS, deadlines, fees, or university options, and I'll guide you."
+        )
+
+    def get_initial_chat(self) -> list[dict]:
+        """Return the first assistant message for the current mode."""
+        return [{"role": "assistant", "content": self.get_greeting()}]
+
     async def setup(self):
         self.tools, self.browser, self.playwright = await playwright_tool()
         self.tools += await other_tools()
+        self.tools += get_edu_extra_tools()
+
 
         worker_llm = ChatOpenAI(
-            model="nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
-            base_url="https://integrate.api.nvidia.com/v1",
-            api_key=NVIDIA_NIM_API_KEY,
+            model="gpt-4o-mini"
+            # model="nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+            # base_url="https://integrate.api.nvidia.com/v1",
+            # api_key=NVIDIA_NIM_API_KEY,
         )
         self.worker_llm_with_tools = worker_llm.bind_tools(self.tools)
 
         evaluator_llm = ChatOpenAI(
-            model="nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
-            base_url="https://integrate.api.nvidia.com/v1",
-            api_key=NVIDIA_NIM_API_KEY,
+            model="gpt-4o-mini"
+            # model="nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+            # base_url="https://integrate.api.nvidia.com/v1",
+            # api_key=NVIDIA_NIM_API_KEY,
         )
         self.evaluator_llm_with_output = evaluator_llm.with_structured_output(EvaluatorOutput)
 
@@ -245,7 +266,7 @@ Give the assistant benefit of the doubt if the response is directionally correct
 
     # ── RUN ──────────────────────────────────────
 
-    async def run(self, message: str, success_criteria: str, history: list) -> list:
+    async def run(self, message: str, success_criteria: str, history: list | None) -> list:
         config = {"configurable": {"thread_id": self.agent_id}}
 
         # Success criteria defaults differ by mode
@@ -262,7 +283,7 @@ Give the assistant benefit of the doubt if the response is directionally correct
                 )
 
         state = {
-            "messages": message,
+            "messages": [HumanMessage(content=message)],
             "success_criteria": success_criteria,
             "feedback_on_work": None,
             "success_criteria_met": False,
@@ -273,6 +294,7 @@ Give the assistant benefit of the doubt if the response is directionally correct
 
         result = await self.graph.ainvoke(state, config=config)
 
+        history = history or []
         user = {"role": "user", "content": message}
         reply = {"role": "assistant", "content": result["messages"][-2].content}
         feedback = {"role": "assistant", "content": result["messages"][-1].content}

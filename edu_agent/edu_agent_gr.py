@@ -9,7 +9,13 @@ from edu_agent import EduAgent
 async def setup(interview_mode: bool):
     agent = EduAgent(interview=interview_mode)
     await agent.setup()
-    return agent
+    return agent, agent.get_initial_chat(), gr.update(
+        value=f"*Mode: {'Interview' if interview_mode else 'Guide'}*"
+    )
+
+
+async def load_app():
+    return await setup(True)
 
 
 async def process_message(agent, message, success_criteria, history):
@@ -19,19 +25,21 @@ async def process_message(agent, message, success_criteria, history):
     return results, agent
 
 
-async def switch_mode(agent, interview_mode: bool):
+async def switch_mode(agent, interview_mode: bool, history):
     """Switch agent mode without resetting conversation."""
     if agent:
         agent.set_mode(interview=interview_mode)
         mode_label = "Interview Mode" if interview_mode else "Guide Mode"
-        return agent, gr.update(value=f"✅ Switched to **{mode_label}**")
-    return agent, gr.update(value="⚠️ Agent not initialized yet.")
+        return agent, gr.update(value=f"✅ Switched to **{mode_label}**"), history or agent.get_initial_chat()
+    return agent, gr.update(value="⚠️ Agent not initialized yet."), history or []
 
 
 async def reset(interview_mode: bool):
     new_agent = EduAgent(interview=interview_mode)
     await new_agent.setup()
-    return "", "", [], new_agent, gr.update(value="")
+    return "", "", new_agent.get_initial_chat(), new_agent, gr.update(
+        value=f"*Mode: {'Interview' if interview_mode else 'Guide'}*"
+    )
 
 
 def free_resources(agent):
@@ -46,14 +54,7 @@ def free_resources(agent):
 #  UI
 # ─────────────────────────────────────────────
 
-with gr.Blocks(
-    title="EduAgent",
-    theme=gr.themes.Default(primary_hue="blue", neutral_hue="slate"),
-    css="""
-    .mode-badge { font-size: 0.85rem; padding: 4px 10px; border-radius: 8px; }
-    .header-title { font-size: 1.6rem; font-weight: 700; }
-    """
-) as ui:
+with gr.Blocks(title="EduAgent") as ui:
 
     gr.Markdown("""
     # 🎓 EduAgent
@@ -68,7 +69,6 @@ with gr.Blocks(
             chatbot = gr.Chatbot(
                 label="EduAgent",
                 height=450,
-                type="messages",
                 placeholder="EduAgent will greet you once initialized...",
             )
 
@@ -114,11 +114,7 @@ with gr.Blocks(
 
     # ── EVENT HANDLERS ───────────────────────────
 
-    ui.load(
-        lambda: setup(True),
-        inputs=[],
-        outputs=[agent_state]
-    )
+    ui.load(load_app, inputs=[], outputs=[agent_state, chatbot, mode_status])
 
     # Update mode status label when toggle changes
     interview_toggle.change(
@@ -141,8 +137,8 @@ with gr.Blocks(
 
     switch_button.click(
         switch_mode,
-        inputs=[agent_state, interview_toggle],
-        outputs=[agent_state, mode_status],
+        inputs=[agent_state, interview_toggle, chatbot],
+        outputs=[agent_state, mode_status, chatbot],
     )
 
     reset_button.click(
@@ -152,4 +148,11 @@ with gr.Blocks(
     )
 
 
-ui.launch(inbrowser=True)
+ui.launch(
+    inbrowser=True,
+    theme=gr.themes.Default(primary_hue="blue", neutral_hue="slate"),
+    css="""
+    .mode-badge { font-size: 0.85rem; padding: 4px 10px; border-radius: 8px; }
+    .header-title { font-size: 1.6rem; font-weight: 700; }
+    """,
+)
