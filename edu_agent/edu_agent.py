@@ -14,7 +14,7 @@ from edu_agent_prompts import get_system_prompt
 import uuid
 import asyncio
 from datetime import datetime
-
+from langchain_groq import ChatGroq
 from langchain_google_genai import ChatGoogleGenerativeAI
 import os
 
@@ -92,9 +92,14 @@ class EduAgent:
         self.tools += get_edu_extra_tools()
 
 
-        worker_llm = ChatGoogleGenerativeAI(
-            model = "gemini-2.5-flash",
-            temperature = 0
+        # worker_llm = ChatGoogleGenerativeAI(
+        #     model = "gemini-2.5-flash",
+        #     temperature = 0
+        # )
+
+        worker_llm = ChatGroq(
+            model="llama-3.3-70b-versatile",
+            temperature=0
         )
 
         # worker_llm = ChatOpenAI(
@@ -105,9 +110,14 @@ class EduAgent:
         # )
         self.worker_llm_with_tools = worker_llm.bind_tools(self.tools)
 
-        evaluator_llm = ChatGoogleGenerativeAI(
-            model = "gemini-2.5-flash",
-            temperature = 0
+        # evaluator_llm = ChatGoogleGenerativeAI(
+        #     model = "gemini-2.5-flash",
+        #     temperature = 0
+        # )
+
+        evaluator_llm = ChatGroq(
+            model="llama-3.3-70b-versatile",
+            temperature=0
         )
 
         # evaluator_llm = ChatOpenAI(
