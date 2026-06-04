@@ -3,7 +3,7 @@ from langchain_community.agent_toolkits import PlayWrightBrowserToolkit
 from dotenv import load_dotenv
 import os
 import requests
-
+from pydantic import BaseModel, Field
 from langchain_core.tools import Tool
 from langchain_community.agent_toolkits import FileManagementToolkit
 from langchain_community.tools.wikipedia.tool import WikipediaQueryRun
@@ -15,7 +15,7 @@ import re
 import json
 from pypdf import PdfReader
 from datetime import datetime
-
+from langchain_core.tools import StructuredTool
 
 PYPDF_AVAILABLE = True
 
@@ -25,6 +25,10 @@ pushover_token = os.getenv("pushover_token")
 pushover_user = os.getenv("pushover_user")
 pushover_url = "https://api.pushover.net/1/messages.json"
 serper = GoogleSerperAPIWrapper()
+
+
+class UpdateStudentprofileInput(BaseModel):
+    update_json: str = Field(description="JSON string containing profile updates")
 
 async def playwright_tool():
     playwright = await async_playwright().start()
@@ -175,7 +179,7 @@ def update_student_profile(updates_json: str) -> str:
  
  
 def get_update_profile_tool() -> Tool:
-    return Tool(
+    return StructuredTool(
         name="update_student_profile",
         func=update_student_profile,
         description=(
@@ -189,6 +193,7 @@ def get_update_profile_tool() -> Tool:
             "'{\"documents\": {\"matric\": true}}' "
             "'{\"cgpa\": \"3.23/4.0\", \"aps_certificate\": true}'"
         ),
+        args_schema=UpdateStudentprofileInput
     )
  
  

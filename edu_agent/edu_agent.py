@@ -115,18 +115,18 @@ class EduAgent:
         #     temperature = 0
         # )
 
-        evaluator_llm = ChatGroq(
-            model="llama-3.3-70b-versatile",
-            temperature=0
-        )
-
-        # evaluator_llm = ChatOpenAI(
-        #     model="gpt-4o-mini"
-        #     # model="nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
-        #     # base_url="https://integrate.api.nvidia.com/v1",
-        #     # api_key=NVIDIA_NIM_API_KEY,
+        # evaluator_llm = ChatGroq(
+        #     model="llama-3.3-70b-versatile",
+        #     temperature=0
         # )
-        self.evaluator_llm_with_output = evaluator_llm.with_structured_output(EvaluatorOutput)
+
+        # # evaluator_llm = ChatOpenAI(
+        # #     model="gpt-4o-mini"
+        # #     # model="nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+        # #     # base_url="https://integrate.api.nvidia.com/v1",
+        # #     # api_key=NVIDIA_NIM_API_KEY,
+        # # )
+        # self.evaluator_llm_with_output = evaluator_llm.with_structured_output(EvaluatorOutput)
 
         await self.build_graph()
 
@@ -174,7 +174,7 @@ Please correct this and try again.
         last_message = state["messages"][-1]
         if hasattr(last_message, "tool_calls") and last_message.tool_calls:
             return "tools"
-        return "evaluator"
+        return "end" # for evaluation use "evaluator"
 
     # ── CONVERSATION FORMATTER ───────────────────
 
@@ -243,18 +243,18 @@ Give the assistant benefit of the doubt if the response is directionally correct
             HumanMessage(content=user_message),
         ]
 
-        eval_result = self.evaluator_llm_with_output.invoke(evaluator_messages)
+        # eval_result = self.evaluator_llm_with_output.invoke(evaluator_messages)
 
         return {
             "messages": [
                 {
                     "role": "assistant",
-                    "content": f"Evaluator Feedback: {eval_result.feedback}",
+                    "content": f"Evaluator Feedback: we have disabled it for a moment",
                 }
             ],
-            "feedback_on_work": eval_result.feedback,
-            "success_criteria_met": eval_result.success_criteria_met,
-            "user_input_needed": eval_result.user_input_needed,
+            # "feedback_on_work": eval_result.feedback,
+            # "success_criteria_met": eval_result.success_criteria_met,
+            # "user_input_needed": eval_result.user_input_needed,
         }
 
     # ── EVALUATION ROUTER ────────────────────────
@@ -271,17 +271,24 @@ Give the assistant benefit of the doubt if the response is directionally correct
 
         graph_builder.add_node("worker", self.worker)
         graph_builder.add_node("tools", ToolNode(tools=self.tools))
-        graph_builder.add_node("evaluator", self.evaluator)
+        # graph_builder.add_node("evaluator", self.evaluator)
+
+        # graph_builder.add_conditional_edges(
+        #     "worker", self.worker_router, {"tools": "tools", "evaluator": "evaluator"}
+        # )
 
         graph_builder.add_conditional_edges(
-            "worker", self.worker_router, {"tools": "tools", "evaluator": "evaluator"}
+            "worker",
+            self.worker_router,
+            {"tools": "tools", "end": END}
         )
+#kadslf;j
         graph_builder.add_edge("tools", "worker")
-        graph_builder.add_conditional_edges(
-            "evaluator",
-            self.route_based_on_evaluation,
-            {"worker": "worker", "END": END},
-        )
+        # graph_builder.add_conditional_edges(
+        #     "evaluator",
+        #     self.route_based_on_evaluation,
+        #     {"worker": "worker", "END": END},
+        # )
         graph_builder.add_edge(START, "worker")
 
         self.graph = graph_builder.compile(checkpointer=self.memory)

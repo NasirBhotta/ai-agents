@@ -190,7 +190,7 @@ Multi-agent systems require careful orchestration, combining agents with complem
 Vision and browser agents extend capability with VLMs, enabling multimodal reasoning and information extraction from the web.
 
 
-
+limitation -> if there is more than 25 conversation between the agents then it will throw error -> langgraph
 
 This document explains why developers might choose smolagents, a lightweight yet powerful framework for building AI agents that can interact with the real world (e.g., search or image generation) through tool use. It highlights key advantages such as simplicity, flexible support for many LLM providers, a code-first approach for tool calling (reducing JSON parsing complexity), and seamless integration with the Hugging Face Hub (including Gradio Spaces as tools). It also clarifies when smolagents is the right fit—especially for quick experiments and straightforward application logic—while introducing its model integration options and multi-step agent types.
 
@@ -264,3 +264,4 @@ Browser automation tools like Selenium and Helium are essential for building age
 Custom functions, such as save_screenshot, can be used as step callbacks to capture the browser's current state and store it for the VLM agent to process.
 The step_callback mechanism allows the agent to store screenshots and current URL information at the end of each action step during its execution.
 Special navigation instructions (helium_instructions) are included in the task prompt to effectively guide the agent while browsing the web.
+
